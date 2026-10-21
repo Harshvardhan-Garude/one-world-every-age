@@ -1,6 +1,8 @@
 # Internet Safety Companion — functional specification
 
-Version: 1.1 · October 21, 2026 · Working product name: Beacon
+Version: 1.2 · October 21, 2026 · Working product name: Ozone Layer (earlier drafts: Beacon)
+
+Changes in 1.2: working title Ozone Layer; parent-approved purchases with k-ID and FastSpring (section 13.1); stretch learning game (section 8.4); team ownership (section 17).
 
 Status: final implementation brief, including voice coaching. This revision preserves the original all-ages audience, scenario catalog, intervention boundaries, and learning-credit rules. It adds the voice experience, assigns provider responsibilities, and defines a focused hackathon demonstration. Requirements describe what to build; they do not assert that an integration has already been implemented or tested.
 
@@ -40,9 +42,9 @@ Implementation references:
 - Chrome page access: https://developer.chrome.com/docs/extensions/develop/concepts/activeTab
 - Chrome extension permissions: https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions
 
-The participant guide permits any preferred model/framework and scores adaptation, useful stack integration, working behavior, user value, and ambition. It asks teams to show the same flow across child, teen, and adult test users and more than one country. The product does not need an unrelated payment feature to make FastSpring appear. Confirm any on-site changes with the organizers. Project coding starts at 10:20 AM Pacific; the guide sets submission at 4:30 PM and a two-minute live demonstration. Follow the current participant guide over older event-page schedules.
+The participant guide permits any preferred model/framework and scores adaptation, useful stack integration, working behavior, user value, and ambition. It asks teams to show the same flow across child, teen, and adult test users and more than one country. FastSpring is used for a purpose that fits the product: parent-approved purchases inside Ozone Layer (section 13.1), never a payment wall for basic protection. Confirm any on-site changes with the organizers. Project coding starts at 10:20 AM Pacific; the guide sets submission at 4:30 PM and a two-minute live demonstration. Follow the current participant guide over older event-page schedules.
 
-Track positioning: the extension and learning coach fit Education or Consumer AI directly. If entering Gaming, make repeated clue-finding, decisions, feedback, and learning progress central to play. Confirm the track at the help desk; do not assume the original Gaming registration prevents refinement.
+Track positioning: the extension and learning coach fit Education or Consumer AI directly, and parent-approved purchases also fit Commerce. If entering Gaming, make repeated clue-finding, decisions, feedback, and learning progress central to play. Confirm the track at the help desk; do not assume the original Gaming registration prevents refinement.
 
 Treat web-page content and provider responses as data, never as instructions to override system behavior. Confirm the participant guide before claiming sponsor compliance.
 
@@ -64,7 +66,7 @@ Mobile, native games, native messaging, whole-device monitoring, comprehensive i
 
 Use Explain, Pause, and Restrict interventions. Explain and Pause may advise about an external website. Restrict is enforceable for our own features and controlled demo interactions; third-party restrictions require a separately supported implementation. k-ID permissions for our app do not establish control over another app's chat, payments, or content.
 
-Guardian consent and permission to share incident content are distinct. No automatic external guardian notification or emergency dispatch in iteration 1.
+Guardian consent and permission to share incident content are distinct. No automatic external guardian notification or emergency dispatch in iteration 1. The one exception is purchases: k-ID's documented purchase-approval and purchase-reporting flows notify the linked parent (section 13.1). We send no guardian messages ourselves, and incident content is never shared through them.
 
 ## 4. Iteration 1 deliverables
 
@@ -80,6 +82,8 @@ MUST deliver:
 8. README with setup, extension loading, provider configuration, limitations, and exact verified workflows.
 9. Voice-coaching controls and complete turn-based interaction: an optional spoken cue, push-to-talk question or answer, evidence-grounded response, captions, stop/cancel, and text fallback. Implement the Gemini → Inworld speech-output and Modulate → Gemini speech-input adapter paths; clearly distinguish connected and simulated behavior.
 10. A provider-backed permission demonstration using the event's supported k-ID test/sandbox workflow when access is available, with the decision source visible. A client-side persona switch or locally edited permission is not proof of integration.
+11. Parent-approved purchases (section 13.1): adult admin consent through k-ID, a saved payment method in FastSpring's hosted checkout, the parent's spending rule enforced by our backend, k-ID purchase approval, and a FastSpring test-mode charge. Only Ozone Layer's own catalog is purchasable.
+12. Stretch, only if items 1–11 work end to end with time left: the optional learning game in section 8.4.
 
 ### 4.1 Build priorities within iteration 1
 
@@ -91,9 +95,10 @@ Keep the complete audience and scenario contract. Sequence work so the event has
 | Second | k-ID session integration and backend checks for text/voice; supported age, country, and consent test variations | Actual sandbox/test responses or an explicitly labeled integration blocker |
 | Third | Inworld spoken explanation; Modulate push-to-talk transcription/redaction; Gemini follow-up reasoning | One complete voice turn with live/mock status for each stage |
 | Fourth | One curated mastery challenge and adult fake-check example | P08 and a single-credit award; replay adds no credit |
+| Alongside second | Parent consent, approve-each-request purchase, FastSpring test charge, and one denied request (section 13.1) | One approved request charged once and one denied request not charged, with each stage labeled live or simulated |
 | Then | Remaining scenario fixtures, badge coverage, accessibility, and regression validation | The original scenario and acceptance catalog remains the full iteration-1 checklist |
 
-If the clock runs out, report the unfinished requirements and submit the working slice. Never present a partially completed build as full acceptance. Skip the daily/weekly scorecard, additional languages, continuous realtime audio, and FastSpring before compromising the core flow.
+If the clock runs out, report the unfinished requirements and submit the working slice. Never present a partially completed build as full acceptance. Skip the daily/weekly scorecard, additional languages, continuous realtime audio, the monthly-limit and notification extras, and the learning game before compromising the core flow.
 
 English is the initial language. Explain this limitation rather than silently classifying unsupported languages as safe. Country/state input and permission resolution must not be limited to English-speaking locations, but live supported jurisdictions depend on the configured integration.
 
@@ -258,6 +263,12 @@ For concerning first-person distress: respond supportively, encourage contacting
 
 Distinguish personal statements from quotes, fiction, educational discussion, news, and requests for help. No punitive badges, public labels, automatic police reports, or external guardian messages. A live deployment of serious-harm detection and escalation requires a separately reviewed protocol.
 
+### 8.4 Stretch: learning game after a block
+
+Build only if the core flow works end to end with time left. When content is blocked or restricted (for example P02) or a concern is shown (for example P01), the user may open a small offline HTML game in the style of Chrome's dinosaur game. Short rounds teach why that content was blocked or risky and how to use the tool more responsibly, with age-appropriate copy.
+
+The game is always optional. It never stands between the user and the warning, the safe action, or dismissal, and it can be closed at any time. It works without a network connection, is keyboard playable, supports reduced motion, and plays no sound unless spoken coaching is enabled. It earns no mastery credit unless it presents a curated challenge under section 10's rules. It shows no adult or harmful content and never reproduces the blocked material.
+
 ## 9. Persona and scenario catalog
 
 All names and messages are fictional. Demo fixtures avoid real account credentials, functional phishing destinations, real victims' images, and actual financial transactions. Use reserved example domains.
@@ -287,7 +298,7 @@ Each scenario includes an expected no-risk or ambiguous variant. Never suggest a
 
 ## 10. Gamification: badges and status only
 
-No discounts, cash, redeemable currency, public leaderboards, trading, referral rewards, or prizes in iteration 1. No streak-loss pressure. No reward for time spent browsing risky content or for encountering serious-harm material.
+No discounts, cash, redeemable currency, public leaderboards, trading, referral rewards, or prizes in iteration 1. Parent-approved purchases (section 13.1) are separate from learning rewards: badges and status can never be bought, and purchases never earn credit. No streak-loss pressure. No reward for time spent browsing risky content or for encountering serious-harm material.
 
 ### 10.1 Proactive flagging
 
@@ -349,6 +360,8 @@ Minimum entities:
 - Attempt: challenge reference, response, independent/revealed state, outcome, timestamp.
 - VoiceTurn: transient turn ID, owning session/finding, context version, stage, cancellation state, and capability-check result; audio and transcript are not default durable fields.
 - BadgeAward/Progress: badge ID, unique credit keys, earned date, status.
+- PurchasePolicy: owning adult admin, child session reference, rule (off, approve each, monthly limit), monthly limit and currency, what happens over the limit, notify-after-purchase flag, version.
+- PurchaseRequest: server-generated ID, child session, catalog item, server price and currency, state, k-ID expiry, FastSpring references. No card data is ever stored, logged or received by our code.
 
 Default behavior: no durable raw browsing content, no raw audio storage, no coaching memory unless permitted and opted in, no server-side screenshot storage, no third-party advertising trackers. Process excerpts in memory and discard after the response; provider retention must be documented before live use. Disable cloud analysis where retention obligations cannot be met.
 
@@ -364,17 +377,48 @@ Trusted contact/guardian UI is informational and preview-only in iteration 1. Ex
 
 | Provider | Assigned responsibility | Iteration 1 behavior |
 | --- | --- | --- |
-| k-ID | Resolve age/jurisdiction/consent into applicable feature permissions | Prioritize an actual supported event test-session flow; enforce decisions on the server. A labeled deterministic mock remains available for development and outages |
+| k-ID | Resolve age/jurisdiction/consent into applicable feature permissions; parent purchase approval and purchase reporting (section 13.1) | Prioritize an actual supported event test-session flow; enforce decisions on the server. A labeled deterministic mock remains available for development and outages |
 | Gemini | Evidence-based explanations, conversational reasoning, and adaptive practice wording | Structured validated responses behind capability and cloud-consent checks; pre-authored text fallback |
 | Inworld | Expressive speech output for prompts, hints, and explanations | Use documented TTS on validated text; a voice outage preserves captions/text. Do not duplicate Gemini reasoning inside a separate agent |
 | Modulate | Speech transcription plus detected sensitive-information redaction | Use documented redaction for short voice turns; it does not establish general text-scam detection or prove a speaker's honesty |
-| FastSpring | Possible later subscription/entitlement demonstration | Deferred from the core build. Add only a relevant sandbox use if time and product scope justify it; no payment wall for basic protection |
+| FastSpring | Parent's saved payment method and charges for approved in-app purchases | Test mode only. Hosted checkout saves the card; our backend charges it only after the parent's policy and k-ID approval allow it (section 13.1). Basic protection is never behind a payment |
 
 Document each provider's exact status: live verified, implemented but unverified, mock, not configured, or deferred. A successful read of documentation does not count as live verification. Label k-ID sandbox/test sessions separately from production identity assurance. Development mode must never turn simulated approvals into production authorization.
 
 The participant guide rewards real partner-tool use; it does not state that every listed partner must be integrated. Aim to show k-ID, Inworld, and Modulate doing useful work in the same flow, with Gemini supplying reasoning. Missing access is a disclosed blocker, not permission to describe a mock as a connected sponsor integration.
 
 Missing credentials do not block the deterministic demo. They do block claims of live provider validation. Read credentials from server environment/configuration, never ask for secrets in chat, and never commit them. Use adult presenters and synthetic fixtures in approved test flows.
+
+### 13.1 Parent-approved purchases
+
+Goal: a minor can request a purchase inside Ozone Layer, and an adult admin decides how that works. Only Ozone Layer's own catalog is purchasable. FastSpring sells only our store's products, so it cannot pay for other companies' games, stores or in-game items, and we never intercept other sites' payment forms (section 7.3).
+
+Setup by the adult admin:
+
+1. The child goes through k-ID's age flow. k-ID sends the parent a consent challenge and links the verified parent to the child's session. Our backend maps the documented purchase-related decisions (for example the `in-game-purchases` permission) to an internal `purchases` capability, which must be allowed before any request.
+2. The parent saves a card in FastSpring's hosted checkout (popup or web). Card details go only to FastSpring; our code never receives, stores or logs them.
+3. The parent picks a spending rule in our dashboard: **off** (every request is denied), **approve each request**, or **monthly limit** (under the limit charges straight away; over it either asks the parent or is denied, as the parent chooses). Separately, **notify after purchase** reports each completed purchase to the parent. k-ID documents no spending limits, so our backend stores and enforces these rules.
+
+Request flow:
+
+1. The child requests a catalog item. The backend creates a request with a server-generated ID and takes the price from its own catalog, never from the client.
+2. The backend checks the `purchases` capability and the parent's rule. If approval is needed, it calls k-ID `POST /transaction/request-purchase` with `sessionId`, our request `id`, `title`, optional `description`, `amount` in minor units and `currency`.
+3. k-ID emails the parent, who answers in Family Connect. k-ID returns the result only by the `Transaction.PurchaseApprovalResult` webhook, with `status` `approved`, `denied` or `expired`. Requests expire after 24 hours, and a player may have at most 20 waiting.
+4. On approval, or when under the monthly limit, the backend rechecks the rule, the monthly total and the request state in one transaction, then charges the parent's saved method through FastSpring. FastSpring's webhooks confirm success or failure.
+5. When notify-after-purchase is on, the backend reports the completed purchase with k-ID `POST /transaction/push`, which shows it in Family Connect and k-ID's activity emails.
+
+Rules:
+
+- k-ID never processes, holds or blocks payments; our backend enforces every decision. Denied, expired, unanswered or disabled requests never charge, and a provider failure never turns into a charge.
+- Verify both webhooks on the raw body with a constant-time comparison, and ignore repeat deliveries. k-ID: lowercase hex HMAC-SHA256 of the `X-Signature-Timestamp` value followed by the body, in `X-Signature-Hmac-Sha256`. FastSpring: base64 HMAC-SHA256 of the body in `X-FS-Signature`.
+- Purchases never earn badges, and badges can't be bought. Basic protection, warnings, preset lessons and badges never require a purchase.
+- Show the child clear request states (waiting for parent, approved, declined, expired, failed) without shaming. Show the parent a history of requests and purchases.
+- Use FastSpring test mode and test cards only, with synthetic personas and a teammate's own adult email as the test parent. No real children's data and no real payments.
+
+Open items to confirm on site:
+
+- k-ID must enable Transactions for our organization, and Transactions and Purchase Controls must be switched on for our product in Compliance Studio. Without them, `/transaction/request-purchase` returns `FEATURE_DISABLED`. The docs describe no way to fake an approval result in test mode, so the test parent may need to click the real email. Test-mode consent links expire after 7 minutes.
+- FastSpring: a charge to a saved card through a managed subscription (`POST /subscriptions/charge`) has no amount field; it repeats the subscription price unless the price is updated first. Confirm how to charge a varying amount, and whether a card can be saved through a $0 or trial checkout. Until confirmed, the charge step may use FastSpring's documented `simulate` option, labeled as simulated.
 
 ## 14. Suggested implementation architecture
 
@@ -393,6 +437,10 @@ Suggested logical endpoints, owned by our app and not vendor API claims:
 - GET /api/challenges; POST /api/challenges/:id/attempts
 - GET /api/progress; POST /api/findings/:id/feedback
 - DELETE /api/user-data
+- GET /api/purchase-policy; PUT /api/purchase-policy (adult admin only)
+- POST /api/payment-method/checkout (adult admin only; starts FastSpring hosted checkout)
+- POST /api/purchases; GET /api/purchases; GET /api/purchases/:id
+- POST /api/webhooks/kid; POST /api/webhooks/fastspring (signature-verified, repeat-safe)
 
 Validate payload length and content type, require ownership where relevant, return structured errors, and enforce feature checks server-side. Use cancellation/timeouts for provider calls. An analysis timeout preserves local results and clearly marks missing cloud analysis. For a voice turn, validate access at each provider stage, propagate cancellation, and prevent one session from reading or replaying another session's audio. Limit the voice pipeline to one turn at a time. Use bounded server-memory processing; avoid durable temporary audio files.
 
@@ -448,10 +496,25 @@ Performance targets for local development, not asserted production guarantees: c
 - S02: Logs contain no raw excerpts, secrets, raw DOB, or audio; memory-disabled sessions retain no coaching history.
 - S03: Delete/reset removes the corresponding owned data and local history; it does not affect another user.
 - S04: Injected page instructions cannot change system policy, enable permissions, award badges, or execute HTML/script.
-- S05: No external notification, payment, emergency call, or form submission occurs from a warning or fixture.
+- S05: No external notification, payment, emergency call, or form submission occurs from a warning or fixture. The only payments and guardian notifications are those of the approved purchase flow in section 13.1.
 - S06: Keyboard and screen-reader flows cover onboarding, warning dismissal, evidence inspection, and challenge completion.
 
-Run unit tests for rules, capability checks, award logic, and negative cases; integration tests for backend ownership/idempotency/provider errors; and Playwright tests for the companion and an unpacked-extension browser smoke test where supported. If browser tooling cannot test the actual extension, report that limitation and provide a manual verification checklist; do not count app-only tests as extension validation. Test live provider sandbox flows separately from mock tests and report each accurately.
+### Purchases
+
+- PU01: A request with the `purchases` capability not allowed, or with the rule set to off, is rejected before any provider call.
+- PU02: Approve-each sends exactly one k-ID purchase request; an `approved` result charges the saved method exactly once.
+- PU03: `denied`, `expired` and unanswered requests never charge, and the child sees the correct state.
+- PU04: Under the monthly limit charges without asking; over the limit follows the parent's choice (ask or deny); concurrent requests can't exceed the limit.
+- PU05: Webhooks with a bad or missing signature are rejected; repeated deliveries cause no second charge or state change.
+- PU06: Client-supplied prices, approvals or policy fields are ignored; only adult admins can read or change the policy or start card checkout.
+- PU07: No card data reaches our backend, logs or browser bundles; provider secrets stay server-side.
+- PU08: Each purchase stage reports its real mode (live test mode or simulated); a simulated charge is never presented as a real one.
+
+### Learning game (stretch)
+
+- L01: If built, the learning game is optional, works offline, can be closed at any time, never blocks the warning or safe action, and awards no credit outside section 10's rules.
+
+Run unit tests for rules, capability checks, award logic, purchase policy, and negative cases; integration tests for backend ownership/idempotency/provider errors; and Playwright tests for the companion and an unpacked-extension browser smoke test where supported. If browser tooling cannot test the actual extension, report that limitation and provide a manual verification checklist; do not count app-only tests as extension validation. Test live provider sandbox flows separately from mock tests and report each accurately.
 
 ## 16. Demo script
 
@@ -468,17 +531,17 @@ Rehearse a two-minute demonstration. Prepare vendor-supported test sessions in a
 
 Select age/country/consent test cases with a k-ID mentor so they produce a genuine documented difference. Do not stage an invented legal rule. If the supported consent workflow cannot finish within the slot, use clearly identified pre-established provider-backed sessions and explain that distinction. A mock policy toggle is allowed only in the labeled offline demonstration.
 
-Keep the adult fake-check example, legitimate/ambiguous comparison, badge replay/idempotency demonstration, and wider all-ages catalog ready for questions and full acceptance validation. If live services fail, show the labeled fallback and state which integrations are unavailable; do not pass a recording off as a live response.
+If the purchase flow works, a short follow-up shows a child's request, the parent's approval in Family Connect, and the test charge, with each stage labeled. Keep the adult fake-check example, legitimate/ambiguous comparison, badge replay/idempotency demonstration, and wider all-ages catalog ready for questions and full acceptance validation. If live services fail, show the labeled fallback and state which integrations are unavailable; do not pass a recording off as a live response.
 
 ## 17. Build sequence and completion report
 
 Implement in this order: inspect the existing repository and provider access; establish one actual k-ID test flow and shared capabilities; build the P01/P16 extension-to-explanation slice; connect Gemini text reasoning; add Inworld output; add Modulate push-to-talk input; demonstrate backend denial/revocation; complete one curated mastery challenge and the adult P08 case; then complete the broader fixture/acceptance catalog, verification, and documentation. Keep a runnable vertical slice throughout. Provider setup happens early enough to expose access blockers.
 
-Suggested three-person ownership, adjusted to teammates' strengths:
+Team ownership, agreed October 21:
 
-- Integration/backend owner: k-ID session mapping, authentication, capability checks, extension/backend contract, and cancellation.
-- Experience owner: extension extraction/alerts, companion UI, evidence highlighting, challenge controls, and accessibility.
-- AI/audio owner: Gemini structured responses, Modulate redaction parsing, Inworld output, captions, and voice failure handling.
+- Harsh, integration/backend owner: k-ID session mapping, authentication, capability checks, extension/backend contract, cancellation, purchase policy and k-ID/FastSpring webhooks.
+- Joseph, experience owner: extension extraction/alerts, companion UI, evidence highlighting, challenge controls, parent and purchase screens, accessibility, and the stretch learning game.
+- Angela, coordinator and AI/audio owner with Joseph: merges, demo and submission; Gemini structured responses, Modulate redaction parsing, Inworld output, captions, and voice failure handling.
 
 Agree on shared schemas and one end-to-end fixture before splitting implementation. Reserve the final hour before submission for integration, tests, honest provider-status reporting, and rehearsal. Prepare the submission when the form opens at 3:00 PM; verify the final version before 4:30 PM Pacific.
 
@@ -488,4 +551,4 @@ At completion report: what actually runs; exact setup and extension loading step
 
 ## 18. Copy-paste instruction to begin implementation
 
-“Implement iteration 1 from INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md (version 1.1). Treat its MUST requirements, permission boundaries, privacy rules, badge logic, and acceptance criteria as the implementation contract. Use the existing checkout; inspect repository instructions first. Build the extension, companion app, backend, and complete labeled demo fixtures. Prioritize the game-reward evidence/challenge slice and real k-ID test-session enforcement, then the Modulate → Gemini → Inworld push-to-talk coaching path. Preserve all-ages participation, captions, text fallback, and server-side stop/revocation behavior. Use documented provider interfaces only; when credentials or contracts are missing, implement explicitly labeled mocks and continue independent work. Keep all ages represented. Do not deploy or publish. Run meaningful tests and report live versus mocked capabilities and remaining limitations.”
+“Implement iteration 1 from INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md (version 1.2). Treat its MUST requirements, permission boundaries, privacy rules, badge logic, and acceptance criteria as the implementation contract. Use the existing checkout; inspect repository instructions first. Build the extension, companion app, backend, and complete labeled demo fixtures. Prioritize the game-reward evidence/challenge slice and real k-ID test-session enforcement, then the Modulate → Gemini → Inworld push-to-talk coaching path. Preserve all-ages participation, captions, text fallback, and server-side stop/revocation behavior. Use documented provider interfaces only; when credentials or contracts are missing, implement explicitly labeled mocks and continue independent work. Keep all ages represented. Do not deploy or publish. Run meaningful tests and report live versus mocked capabilities and remaining limitations.”

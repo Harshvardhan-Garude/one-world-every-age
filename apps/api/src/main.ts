@@ -5,5 +5,5 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('API
 const app = createApp({ companionOrigin: process.env.BEACON_COMPANION_ORIGIN, extensionOrigins: process.env.BEACON_EXTENSION_ORIGINS?.split(',').filter(Boolean) });
 app.requestTimeout = 10_000;
 app.headersTimeout = 10_000;
-app.listen(port, '127.0.0.1', () => console.log(`Beacon demo API: http://127.0.0.1:${port}`));
+app.listen(port, '127.0.0.1', () => console.log(`Ozone Layer demo API: http://127.0.0.1:${port}`));
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => { app.close(); app.closeAllConnections(); });

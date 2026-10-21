@@ -37,7 +37,7 @@ The pre-push guard (`.githooks/pre-push`) and the `secret-scan` CI check enforce
 1. **Keys live in `.env` only.** Never put them in code, commits, screenshots or Discord channels. Add new variable *names* (no values) to `.env.example`.
 2. **Partner keys stay server-side.** k-ID, Inworld, Modulate and FastSpring keys are called from our backend. Anything with a browser-exposed prefix (the `NEXT_PUBLIC`, `VITE`, `REACT_APP` and `EXPO_PUBLIC` family) is shipped to every player's browser. The guard blocks secret-looking names with those prefixes.
 3. **Synthetic people only.** Use k-ID's test personas and made-up data. This is a product for kids, so no real players' names, birthdays, ages, locations, photos or voices.
-4. **No raw recordings.** Voice and video captures are personal data. `recordings/` is ignored and the guard blocks raw audio and video files. Demo clips made with TTS go in `assets/synthetic/`.
+4. **No raw recordings in the repo, storage or logs.** Voice and video captures are personal data. `recordings/` is ignored and the guard blocks raw audio and video files. Demo clips made with TTS go in `assets/synthetic/`. The live voice turn in the spec (8.1.5) is allowed only for a consenting **adult** presenter: the audio is processed in memory, sent to Modulate for redaction, and never committed, saved or logged. Never record a child's or a real player's voice.
 5. **Test mode only.** FastSpring sandbox and test cards. No real payment details anywhere.
 6. **No personal machine paths** (`/Users/<you>/…`) or personal emails in code or config.
 
