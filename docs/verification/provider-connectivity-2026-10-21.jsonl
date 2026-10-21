@@ -1,0 +1,6 @@
+{"diagnosticOnly":true,"applicationAuthorization":"unverified","provider":"k-ID","stage":"read-only-test-requirements","httpStatus":200,"requirementsParsed":true,"sessionApproval":"not tested","mapping":"unconfirmed"}
+{"diagnosticOnly":true,"applicationAuthorization":"unverified","provider":"Inworld","stage":"system-voice-list","httpStatus":200,"responseParsed":true,"voiceAvailable":true}
+{"diagnosticOnly":true,"applicationAuthorization":"unverified","provider":"Inworld","stage":"fixed-fictional-tts","httpStatus":200,"responseParsed":true,"diagnosticModel":"inworld-tts-2","diagnosticVoice":"Aanya","configurationWritten":false,"playbackVerified":false}
+{"diagnosticOnly":true,"applicationAuthorization":"unverified","provider":"Modulate","stage":"synthetic-tts-redaction","httpStatus":200,"multipartParsed":true,"redactionAccuracy":"not established by this short diagnostic","retention":"unconfirmed","sentToGemini":false}
+{"diagnosticOnly":true,"applicationAuthorization":"unverified","provider":"FastSpring","stage":"read-only-catalog","httpStatus":200,"responseParsed":true,"checkoutCalls":0,"chargeCalls":0,"orderCreated":false}
+{"diagnosticOnly":true,"applicationAuthorization":"unverified","provider":"Gemini","result":"historical successful diagnostic preserved; no repeat call or model change"}

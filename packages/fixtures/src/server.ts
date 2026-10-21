@@ -10,7 +10,11 @@ export const baselineRubric = serverRubricSchema.parse({
 
 // Short unscored practice. Answer keys and feedback stay in the node-only export.
 // Full independence/credit/idempotent award rules remain W09 work.
-export function fixtureLesson(fixtureId: 'P01' | 'P16') {
+export function fixtureLesson(fixtureId: 'P01' | 'P10' | 'P16') {
+  if (fixtureId === 'P10') return {
+    challenge: publicChallengeSchema.parse({ ...baselineChallenge, id: 'toll-address-and-request', credit_key: 'toll-teaching-01', category: 'financial', question: 'What should Susan inspect before paying a message about a toll?', choices: [{ id: 'address-request', text: 'The actual destination, deadline and payment request together' }, { id: 'logo', text: 'Only the displayed service name' }, { id: 'color', text: 'Only the colors in the email' }] }),
+    correctChoiceId: 'address-request', teaching: 'The displayed name does not verify the destination. A short deadline and request for card details deserve a pause. Check through a known app, saved address or a number on a genuine statement; this fixture cannot establish whether a toll is owed.',
+  };
   if (fixtureId === 'P01') return {
     challenge: baselineChallenge, correctChoiceId: baselineRubric.correctChoiceId,
     teaching: 'Look at the actual address and request together. A logo or page color does not establish who runs a page. Keep passwords and sign-in codes private and use an independently known channel.',

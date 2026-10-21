@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": ["widget.tsx", "../../apps/companion/src/env.d.ts"],
+  "exclude": ["../../node_modules"]
+}

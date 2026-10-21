@@ -233,7 +233,8 @@ test('simulated provider flow uses W02 refresh on dispatch/stages/delivery and s
   assert.equal(requestedText, explanation.reply.explanation); assert.equal(audio.captions, requestedText);
   assert.match(audio.notice, /simulated Inworld/); assert.equal(audio.audioBase64, audioContent);
   assert.equal(h.stats().reasoningCalls, 1); assert.equal(h.stats().speechCalls, 1);
-  assert.ok(h.backend.providers(s.credential).providers.every(p => p.status === 'mock'));
+  assert.ok(h.backend.providers(s.credential).providers.filter(p => ['k-ID', 'Gemini', 'Inworld'].includes(p.provider)).every(p => p.status === 'mock'));
+  assert.ok(h.backend.providers(s.credential).providers.filter(p => ['Modulate', 'FastSpring'].includes(p.provider)).every(p => p.status === 'not configured'));
   await assert.rejects(() => h.backend.speak(s.credential, { ...s.request, explanationId: 'foreign' }), { code: 'NOT_FOUND' });
   const other = await owned(h.backend);
   await assert.rejects(() => h.backend.speak(other.credential, { ...s.request, explanationId: explanation.explanationId }), { code: 'NOT_FOUND' });

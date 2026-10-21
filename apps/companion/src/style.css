@@ -485,3 +485,5 @@ button,select,.tabs button,.kid-gate button {
 .kid-notice h1 {
   font-size:24px}
 }
+
+.demo-extra{margin:2rem 0;padding:1.5rem;background:#fffef5;border:1px solid #cad6cf;border-radius:20px}.demo-extra label{display:block;margin:.8rem 0}.demo-extra select,.demo-extra input:not([type=checkbox]){display:block;width:100%;max-width:100%;padding:.7rem;font:inherit}.demo-extra button,.purchase-demo button{margin:.4rem .4rem .4rem 0}.captions{font-size:1.2rem;padding:1rem;border-left:4px solid #075747}mark{background:#fff0a6;color:#182d28;overflow-wrap:anywhere}.purchase-demo{margin:1.5rem 0;padding:1rem;border:1px solid #cad6cf;border-radius:12px}

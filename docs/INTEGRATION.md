@@ -1,5 +1,7 @@
 # Ozone Layer local integration and demo handoff
 
+Current local demo implementation and live diagnostic evidence are recorded in [DEMO.md](DEMO.md). Historical snapshot/status notes below are retained; they must not be treated as the current completion record. The team W14 parent-purchase plan remains in force.
+
 Audit date: 2026-10-21. Branch: `feat/ozone-integration`. Worktree: sibling `one-world-every-age-integration`. This is a local review branch, not team main. No push, deployment, publication or live vendor operation was performed.
 
 ## Recorded inputs

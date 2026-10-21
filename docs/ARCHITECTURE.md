@@ -1,5 +1,7 @@
 # Architecture and integration handoffs
 
+Current local demo implementation and live diagnostic evidence are recorded in [DEMO.md](DEMO.md). Historical snapshot/status notes below are retained; they must not be treated as the current completion record. The team W14 parent-purchase plan remains in force.
+
 Product: Ozone Layer (working title; internal identifiers keep the earlier "Beacon" name, see the README's Naming section). Based on functional specification v1.2, including parent-approved purchases (section 13.1).
 
 Status: W00/W01 (merged in PR #4) implements the workspace and baseline contracts described in [the foundation runbook](FOUNDATION.md). Remaining APIs and product behavior below are future handoff targets based on functional specification v1.2 sections 6–8 and 12–14, including 13.1. The specification governs product behavior; [CONTRIBUTING.md](../CONTRIBUTING.md) governs contribution policy.

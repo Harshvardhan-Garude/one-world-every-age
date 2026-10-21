@@ -1,5 +1,7 @@
 # Implementation work plan
 
+Current local demo implementation and live diagnostic evidence are recorded in [DEMO.md](DEMO.md). Historical snapshot/status notes below are retained; they must not be treated as the current completion record. The team W14 parent-purchase plan remains in force.
+
 Source: [functional specification v1.2](../INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md) for Ozone Layer (working title). Status: W00/W01 merged in PR #4. The local integration contains W02, offline teaching, provider adapters and a companion quiz flow; real k-ID/voice verification and full W03–W15 acceptance are incomplete. See [the audited integration state](INTEGRATION.md). Roles were agreed by the team on October 21; each task's owner follows from its role.
 
 ## Three roles and the coordinator

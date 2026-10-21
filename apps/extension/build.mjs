@@ -11,11 +11,11 @@ if (origin.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(origin.h
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 const manifest = {
-  manifest_version: 3, name: 'Ozone Layer · Foundation', version: '0.1.0',
-  description: 'Ozone Layer local demo and manual page-access shell. Automatic detection and voice are not implemented.',
+  manifest_version: 3, name: 'Ozone Layer · Demo', version: '0.1.0',
+  description: 'Ozone Layer controlled-fixture detection, evidence and owned companion lessons. Local demo only.',
   permissions: ['activeTab', 'scripting', 'storage'],
   optional_host_permissions: ['http://*/*', 'https://*/*'],
-  action: { default_popup: 'popup.html', default_title: 'Open Ozone Layer foundation' },
+  action: { default_popup: 'popup.html', default_title: 'Open Ozone Layer' },
   background: { service_worker: 'worker.js', type: 'module' },
   content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'" },
 };

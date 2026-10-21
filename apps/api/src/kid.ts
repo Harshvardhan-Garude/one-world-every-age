@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { capabilityNames, capabilitySnapshotSchema, type CapabilitySnapshot } from '@beacon/contracts';
-import { unavailable } from './errors.js';
+import { unavailable, abortable } from './errors.js';
 
 export const testBase = 'https://game-api.test.k-id.com/api/v1';
 const reference = z.uuid();
 const permissionSchema = z.object({ name: z.string().min(1).max(100), enabled: z.boolean(), managedBy: z.enum(['GUARDIAN', 'PLAYER', 'PROHIBITED']) });
-export const kidSessionSchema = z.object({ sessionId: reference, status: z.literal('ACTIVE'), jurisdiction: z.string().regex(/^[A-Z]{2}(-[A-Z0-9]{1,3})?$/), permissions: z.array(permissionSchema).max(200).default([]), etag: z.string().max(256).optional() }).superRefine((session, ctx) => {
+export const kidSessionSchema = z.object({ sessionId: reference, status: z.literal('ACTIVE'), ageStatus: z.string().min(1).max(50).optional(), jurisdiction: z.string().regex(/^[A-Z]{2}(-[A-Z0-9]{1,3})?$/), permissions: z.array(permissionSchema).max(200).default([]), etag: z.string().max(256).optional() }).superRefine((session, ctx) => {
   if (new Set(session.permissions.map(p => p.name)).size !== session.permissions.length || session.permissions.some(p => p.managedBy === 'PROHIBITED' && p.enabled)) ctx.addIssue({ code: 'custom', message: 'Ambiguous permission response' });
 });
 export type KidSession = z.infer<typeof kidSessionSchema>;
@@ -15,12 +15,13 @@ export type SyntheticProfile = 'child' | 'teen' | 'adult';
 export interface PermissionAdapter {
   readonly transport: 'vendor-test' | 'unavailable' | 'test-fake';
   readonly mappingConfirmed: boolean;
+  readonly purchaseMappingConfirmed?: boolean;
   start(profile: SyntheticProfile, jurisdiction: string, signal: AbortSignal): Promise<KidResult>;
   refresh(link: KidLink, signal: AbortSignal): Promise<KidResult>;
   status(): { status: 'live verified' | 'implemented but unverified' | 'not configured' | 'mock'; environment: 'k-ID Test Mode'; detail: string; lastSuccessfulCallAt?: string; verifiedSessionAt?: string };
 }
 export const capabilityMapping = {
-  ai_coaching: ['ai-chat'], voice_input: ['ai-chat', 'ai-voice-mode', 'ai-media-upload'],
+  purchases: ['in-game-purchases'], ai_coaching: ['ai-chat'], voice_input: ['ai-chat', 'ai-voice-mode', 'ai-media-upload'],
   voice_output: ['ai-voice-mode', 'ai-media-generation'], uploads: ['ai-media-upload'], conversation_memory: ['ai-memory'],
 } as const;
 export function mapCapabilities(ownerId: string, mode: 'local-demo' | 'provider-test', contextVersion: number, state: 'active' | 'pending' | 'prohibited' | 'unavailable' | 'local-demo', session?: KidSession, now = Date.now()): CapabilitySnapshot {
@@ -54,12 +55,14 @@ export class UnavailablePermissionAdapter implements PermissionAdapter {
 export class CdkTestAdapter implements PermissionAdapter {
   readonly transport: 'vendor-test' | 'test-fake';
   readonly mappingConfirmed: boolean;
+  readonly purchaseMappingConfirmed?: boolean;
   #lastSuccessfulCallAt?: string;
   #verifiedSessionAt?: string;
-  constructor(private readonly config: { key: string; mappingConfirmed: boolean; base?: string; fetcher?: typeof fetch; timeoutMs?: number }) {
+  constructor(private readonly config: { key: string; mappingConfirmed: boolean; purchaseMappingConfirmed?: boolean; base?: string; fetcher?: typeof fetch; timeoutMs?: number }) {
     if (!config.key.trim() || (config.base ?? testBase) !== testBase) throw unavailable();
     this.transport = config.fetcher ? 'test-fake' : 'vendor-test';
     this.mappingConfirmed = config.mappingConfirmed;
+    this.purchaseMappingConfirmed = config.purchaseMappingConfirmed === true;
   }
   status() {
     return { status: this.transport === 'test-fake' ? 'mock' as const : this.#verifiedSessionAt ? 'live verified' as const : 'implemented but unverified' as const, environment: 'k-ID Test Mode' as const, detail: this.transport === 'test-fake' ? 'Injected automated-test transport, never production assurance.' : 'CDK Test Mode adapter; event product/workflow and configured mapping must be confirmed. Test identity assurance is not production verification.', lastSuccessfulCallAt: this.#lastSuccessfulCallAt, verifiedSessionAt: this.#verifiedSessionAt };
@@ -69,14 +72,14 @@ export class CdkTestAdapter implements PermissionAdapter {
     for (const [key, value] of Object.entries(query ?? {})) url.searchParams.set(key, value);
     const deadline = AbortSignal.any([signal, AbortSignal.timeout(this.config.timeoutMs ?? 10_000)]);
     try {
-      const response = await (this.config.fetcher ?? fetch)(url, { method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${this.config.key}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: deadline, redirect: 'error' });
+      const response = await abortable((this.config.fetcher ?? fetch)(url, { method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${this.config.key}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: deadline, redirect: 'error' }), deadline);
       if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw unavailable();
       const reader = response.body?.getReader();
       if (!reader) throw unavailable();
       const chunks: Uint8Array[] = []; let size = 0;
       try {
-        while (true) { const next = await reader.read(); deadline.throwIfAborted(); if (next.done) break; size += next.value.byteLength; if (size > 65536) throw unavailable(); chunks.push(next.value); }
-      } finally { await reader.cancel().catch(() => {}); }
+        while (true) { const next = await abortable(reader.read(), deadline); deadline.throwIfAborted(); if (next.done) break; size += next.value.byteLength; if (size > 65536) throw unavailable(); chunks.push(next.value); }
+      } finally { void reader.cancel().catch(() => {}); }
       const result: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
       this.#lastSuccessfulCallAt = new Date().toISOString();
       return result;
@@ -116,6 +119,6 @@ export class CdkTestAdapter implements PermissionAdapter {
   }
 }
 export function permissionAdapterFromEnvironment(env: NodeJS.ProcessEnv): PermissionAdapter {
-  if (env.KID_WORKFLOW !== 'cdk-test' || !env.KID_API_KEY || (env.KID_API_BASE ?? testBase) !== testBase) return new UnavailablePermissionAdapter();
-  return new CdkTestAdapter({ key: env.KID_API_KEY, base: env.KID_API_BASE, mappingConfirmed: env.KID_AI_MAPPING_CONFIRMED === 'true' });
+  if (env.KID_WORKFLOW !== 'cdk-test' || !env.KID_API_KEY?.trim() || /^kgp_/.test(env.KID_API_KEY.trim()) || (env.KID_API_BASE ?? testBase) !== testBase) return new UnavailablePermissionAdapter();
+  return new CdkTestAdapter({ key: env.KID_API_KEY, base: env.KID_API_BASE, mappingConfirmed: env.KID_AI_MAPPING_CONFIRMED === 'true', purchaseMappingConfirmed: env.KID_PURCHASE_MAPPING_CONFIRMED === 'true' });
 }

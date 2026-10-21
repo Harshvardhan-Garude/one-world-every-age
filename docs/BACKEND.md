@@ -1,5 +1,7 @@
 # Ozone Layer backend: W02 sessions, local teaching and provider handoff
 
+The current demo increment and verification supersede earlier baseline counts/status below. See [DEMO.md](DEMO.md) and the additive routes at the end of this document. Existing W02 ownership and authorization behavior is preserved.
+
 Scope: the existing W02 authentication, owned fixture references, k-ID CDK Test Mode adapter and protected-operation boundary, extended with authenticated P01/P16 scripted explanations, short server-checked practice, and Gemini/Inworld REST adapters. The public W00/W01 demo remains anonymous and unchanged. Modulate, billing, live detection, mastery awards and UI onboarding are still outside this increment. The integration companion now consumes these authenticated offline routes; the original public preview endpoints remain available.
 
 ## Actual status and blockers
@@ -246,3 +248,73 @@ W02 and this backend increment are reviewable, but the full live demonstration i
 ## Local integration follow-up
 
 See [INTEGRATION.md](INTEGRATION.md) for combined verification and exact team snapshots. The optional widget's `/api/kid/claim` response remains `202` with `redeemed: false`. Its `/api/kid/session` route is an authenticated alias of W02 refresh: `Authorization: Bearer <application-credential>` and `{ "contextVersion": <current-version> }`, returning the W02 session view plus `changed`. Arbitrary `sessionId` bodies are rejected. `KID_API_BASE` remains the enforced Test Mode session base; the team's separate `KID_API_BASE_URL` name is retained for purchase planning and does not override W02. No vendor call or `.env` inspection was performed during the integration audit. The earlier Gemini model configuration and diagnostic above are preserved as historical evidence, not reverified authorization.
+
+## Demo integration increment — 2026-10-21
+
+The current source includes P10 toll fixtures alongside P01/P16, a one-time controlled-fixture handoff, persistent anonymous curated progress, explicit consent-withdrawal UI, bounded voice orchestration and a limited eligible-adult FastSpring sandbox checkout. See [DEMO.md](DEMO.md) for exact provider diagnostics, configuration status, final checks and startup/rehearsal instructions. The earlier 67/71-test paragraphs are historical baselines.
+
+All routes below require an application bearer except the existing non-authorizing `/api/kid/claim`. No client-supplied owner, provider session, approval, price, correctness or independence is accepted. Local-demo tickets and progress tokens cannot authorize a provider. Responses/requests use additive contracts in `@beacon/contracts`; provider/rubric implementations remain Node-only.
+
+| Method / route | Request | Behavior |
+| --- | --- | --- |
+| POST `/api/assessments` | `{contextVersion,fixtureId:"P01"\|"P10"\|"P16",variant}` | Current owned synthetic fixture assessment |
+| POST `/api/handoffs` | `{assessmentId,contextVersion}` | Local-demo only; opaque one-time ticket, 45 seconds, source owner/context/expiry checked |
+| POST `/api/handoffs/redeem` | `{ticket,contextVersion}` | Requires target local-demo bearer; creates a new target-owned assessment for the same fixture. Never transfers provider permissions |
+| POST `/api/progress/identity` | `{}` or `{token}` | Binds this application's session to an anonymous progress identity. Returns a progress-only resume token and progress; neither is application authentication |
+| GET `/api/learning` | no body | Nine public challenges with observation/reason/action options; no answer rubric |
+| POST `/api/learning/:challengeId/issue` | `{}` | Server-owned run ID and public challenge; reveal/feedback state stays on the server |
+| POST `/api/learning/:runId/reveal` | `{}` | Marks the objective practice-only and returns teaching |
+| POST `/api/learning/attempts` | `{runId,challengeId,version,credit_key,choiceId,reasonId,actionId,interpretedChoiceConfirmed:true,idempotencyKey}` | Server grading, replay-safe unique credit and exact badges/status, single SQLite transaction |
+| GET `/api/progress` | no body | Owned anonymous progress; no browsing evidence |
+| POST `/api/progress/reset` | `{}` | Deletes this progress identity's attempts, runs and credits transactionally |
+| POST `/api/coaching/questions` | `{assessmentId,contextVersion,question}` | Explicit bounded typed fictional question, provider-test only, existing protected Gemini boundary; no permissions/badges from model output |
+| POST `/api/voice/turns` | `{assessmentId,contextVersion,adultPresenterConsent:true}` | Checks all voice grants, opt-ins, adult server context and Modulate/Gemini configuration **before microphone capture**. Returns a ready turn ID, not permission to bypass later checks |
+| POST `/api/voice/turns/:turnId` | `{contextVersion,durationMs,mimeType,audioBase64}` | One submission, max 15 seconds / 2 MiB decoded; authenticated voice-specific JSON cap 2,800,000 bytes. Redaction first, then Gemini, then optional Inworld. No raw fallback; matching captions survive speech-only failure |
+| POST `/api/voice/turns/:turnId/cancel` | `{}` | Owned turn only; abort/invalidation rejects late results. HTTP disconnects also cancel work |
+| GET `/api/purchase-policy` | no body | Honest off/blocked policy status; no unverified parent-admin editing |
+| POST `/api/purchases` | `{assessmentId,contextVersion,itemId:"ozone-theme",idempotencyKey}` | Server catalog USD 1.00; local/child contexts get blocked with zero checkout/charge calls. Only genuinely bound eligible adult provider-test contexts with confirmed purchase mapping can create hosted test checkout; no charge adapter exists |
+
+Teaching quizzes remain separate and unscored; the P10 teaching quiz has ID `toll-address-and-request`. Public teaching answers stay server-side. Curated progress uses stable credit keys, unique `(progress identity,credit_key)` and `(progress identity,idempotencyKey)` constraints, `BEGIN IMMEDIATE` and bounded submission rate. The first independent correct observation/reason/action can earn credit. Reveal or any answer feedback marks later attempts practice-only across reissuance; equivalent versions cannot farm credit. Purchases/live flags/model agreement never award credit. Badges are derived from committed unique credits with exact specification thresholds. Disk progress is `.local/progress.sqlite`; memory stores are used by injected tests. Reset deletes the identity's learning data; forgetting its browser token is a separate operation.
+
+### Exact local requests
+
+After the existing session example creates `credential` and `contextVersion`, P10 can use the same `/api/assessments` → `/api/coaching/messages` → `/api/challenges` → `/api/challenges/:id/attempts` sequence by choosing `fixtureId:P10`. Do not print bearer credentials. A JavaScript client can perform the new handoff and independent practice as follows (the variables below refer to already-created local application sessions):
+
+```js
+const post = async (path, body, session) => {
+  const response = await fetch(`http://127.0.0.1:8787${path}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.credential}` },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`Local request failed: ${response.status}`);
+  return response.json();
+};
+const owned = await post('/api/assessments', { contextVersion: source.contextVersion, fixtureId: 'P10', variant: 'baseline' }, source);
+const handoff = await post('/api/handoffs', { assessmentId: owned.assessment.id, contextVersion: source.contextVersion }, source);
+const received = await post('/api/handoffs/redeem', { ticket: handoff.ticket, contextVersion: target.contextVersion }, target);
+const identity = await post('/api/progress/identity', {}, target); // keep its progress-only token private locally
+const run = await post('/api/learning/link-check/issue', {}, target);
+// Render run.challenge.choices, run.reasons and run.actions. Submit the user's
+// confirmed selection; never derive correctness or reveal/independence in the client.
+const result = await post('/api/learning/attempts', {
+  runId: run.runId, challengeId: run.challenge.id, version: run.challenge.version, credit_key: run.challenge.credit_key,
+  choiceId: selectedChoiceId, reasonId: selectedReasonId, actionId: selectedActionId,
+  interpretedChoiceConfirmed: true, idempotencyKey: crypto.randomUUID(),
+}, target);
+```
+
+The extension sends only supported fixture IDs/variants, not arbitrary page excerpts. Its worker uses `chrome.storage.session` for the local bearer, exact sender/message validation, an explicit local host grant and the server's configured extension-origin allowlist. The companion removes the handoff fragment immediately and stores application credentials only in closures.
+
+### Preserved provider boundary and new adapters
+
+Real reasoning, redaction, speech and checkout operations run inside `withAuthorizedOperation`. Existing ownership/context checks, permission refresh, `context.assertCurrent()`, cancellation/deadline and final delivery checks remain. New adapters require matching `executionMode`; injected transports are `test-fake` and cannot be combined with real vendor transports behind simulated permissions. Environment cannot select a fake.
+
+Voice uses the documented fixed Modulate batch-redaction endpoint with `X-API-Key`, multipart `upload_file`, `speaker_diarization` and language hint. Node's MIME parser reads the bounded multipart response. Both metadata and MP3 parts are required; nonempty/malformed PII/PHI tags, non-English utterances, oversized/malformed/failed/stalled responses stop the chain. Only the redacted transcript reaches the existing Gemini adapter. Audio/transcripts remain transient; original decoded bytes are zeroed after use, nothing is logged/persisted. This does not establish perfect redaction or zero provider retention. Confirm retention before enabling `MODULATE_RETENTION_CONFIRMED`.
+
+FastSpring uses documented Sessions v2, Basic auth and User-Agent, explicit `live:false` and the server product catalog. The response must remain test mode, match USD 1.00/product/quantity and a returned URL on the configured store's FastSpring host. `checkoutCalls` measures attempted checkout dispatch; `chargeCalls` is always zero. A reservation precedes any await, preventing concurrent duplicate dispatch. A child denial never reaches the adapter. Existing W14 parent policy/link/approval/expiry/saved-method/webhook prerequisites remain unimplemented/blocked; no unsigned approval endpoint or speculative charge operation is exposed.
+
+New optional environment names: `KID_PURCHASE_MAPPING_CONFIRMED`, `MODULATE_RETENTION_CONFIRMED`, `FASTSPRING_CHECKOUT_PATH`, `FASTSPRING_PRODUCT_PATH`, `FASTSPRING_SANDBOX_CONFIRMED`, `BEACON_PROGRESS_PATH`. Existing names and working Gemini model are preserved. Actual configured/missing status and live verification gaps are in DEMO.md; no credential file was copied, overwritten or committed.
+
+Private SDK installation/typecheck/build passed after the archive was supplied. Its bundled docs only name `/client/claim` and token lifetime; they do not specify the server exchange. `/api/kid/claim` therefore stays explicitly `redeemed:false`. No SDK installation, frontend widget pass, requirements GET or standalone Gemini/TTS diagnostic constitutes application approval.
+
+Final current verification: **83 passing tests**, typecheck, complete workspace build, 11-asset browser boundary check and actual built companion/unpacked-extension smoke passed. Real SDK installation/typecheck/optional build passed. The separate real synthetic/provider diagnostics are recorded in DEMO.md and `docs/verification/provider-connectivity-2026-10-21.jsonl`; they do not verify application authorization. Final team fetch remained `17d69b8f361fafad9d307258ce39110067c85ee3`.

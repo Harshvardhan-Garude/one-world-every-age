@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { assessmentSchema, coachingRequestSchema, coachingResponseSchema, contextUpdateSchema, onboardingRequestSchema, ownedAssessmentRequestSchema, parseExplanationForAssessment, permitsProtectedOperation, providerListSchema, quizAnswerRequestSchema, quizFeedbackSchema, quizRequestSchema, quizResponseSchema, sessionViewSchema, speechRequestSchema, speechResponseSchema, type Assessment, type CapabilitySnapshot } from '@beacon/contracts';
+import { voiceBeginSchema, voiceRecordingSchema, voiceResultSchema, purchaseRequestSchema, purchaseResultSchema, assessmentSchema, coachingRequestSchema, coachingResponseSchema, contextUpdateSchema, onboardingRequestSchema, ownedAssessmentRequestSchema, parseExplanationForAssessment, permitsProtectedOperation, providerListSchema, quizAnswerRequestSchema, quizFeedbackSchema, quizRequestSchema, quizResponseSchema, sessionViewSchema, speechRequestSchema, speechResponseSchema, type Assessment, type CapabilitySnapshot } from '@beacon/contracts';
 import { renderDemo } from '@beacon/fixtures';
 import { fixtureLesson } from '@beacon/fixtures/server';
 import { BackendError, abortable, unavailable } from './errors.js';
@@ -8,17 +8,22 @@ import { mapCapabilities, permissionAdapterFromEnvironment, type KidLink, type K
 import type { ProviderContext, ReasoningProvider, SpeechProvider } from './providers.js';
 import { reasoningAdapterFromEnvironment } from './gemini.js';
 import { speechAdapterFromEnvironment } from './inworld.js';
+import { redactionAdapterFromEnvironment, type RedactionProvider } from './modulate.js';
+import { checkoutAdapterFromEnvironment, type CheckoutProvider } from './fastspring.js';
+import { ProgressStore } from './progress.js';
 
 type Start = z.infer<typeof onboardingRequestSchema>;
 type State = 'local-demo' | 'active' | 'pending' | 'prohibited' | 'unavailable';
 type StoredSession = {
   hash: string; ownerId: string; mode: Start['mode']; profile: Start['syntheticProfile']; jurisdiction: string; optIns: Start['optIns'];
   expiresAt: number; contextVersion: number; state: State; snapshot: CapabilitySnapshot;
+  legalAdult?: boolean; progressId?: string; turns: Map<string, { assessmentId: string; version: number; controller: AbortController; expiresAt: number; stage: string }>; purchases: Map<string, { payload: string; result: z.infer<typeof purchaseResultSchema> }>;
   link?: KidLink; providerRevision?: string; busy: boolean; mutation?: AbortController; work: Set<AbortController>;
-  assessments: Map<string, { data: Assessment; expiresAt: number; fixtureId: 'P01' | 'P16'; explanation?: z.infer<typeof coachingResponseSchema>; quizIssued?: boolean }>;
+  assessments: Map<string, { data: Assessment; expiresAt: number; fixtureId: 'P01' | 'P10' | 'P16'; variant: 'baseline' | 'safe' | 'ambiguous'; explanation?: z.infer<typeof coachingResponseSchema>; quizIssued?: boolean }>;
 };
-export type Operation = 'coaching' | 'speech' | 'voice' | 'uploads' | 'memory';
+export type Operation = 'coaching' | 'speech' | 'voice' | 'uploads' | 'memory' | 'checkout';
 const requirements = {
+  checkout: ['purchases'],
   coaching: ['cloud_content_analysis', 'ai_coaching'], speech: ['cloud_content_analysis', 'voice_output'],
   voice: ['cloud_content_analysis', 'ai_coaching', 'voice_input', 'uploads', 'voice_output'],
   uploads: ['cloud_content_analysis', 'uploads'], memory: ['cloud_content_analysis', 'ai_coaching', 'conversation_memory'],
@@ -34,18 +39,27 @@ export class BackendService {
   #limit: number;
   #reasoning: ReasoningProvider;
   #speech: SpeechProvider;
-  constructor(options: { adapter?: PermissionAdapter; reasoning?: ReasoningProvider; speech?: SpeechProvider; now?: () => number; lifetimeMs?: number; maxSessions?: number; allowTestAdapter?: boolean } = {}) {
+  #redaction: RedactionProvider;
+  #checkout: CheckoutProvider;
+  #progress: ProgressStore;
+  #handoffs = new Map<string, { session: StoredSession; assessmentId: string; expiresAt: number }>();
+  constructor(options: { adapter?: PermissionAdapter; reasoning?: ReasoningProvider; speech?: SpeechProvider; redaction?: RedactionProvider; checkout?: CheckoutProvider; progress?: ProgressStore; now?: () => number; lifetimeMs?: number; maxSessions?: number; allowTestAdapter?: boolean } = {}) {
     this.#adapter = options.adapter ?? permissionAdapterFromEnvironment(process.env);
     this.#reasoning = options.reasoning ?? reasoningAdapterFromEnvironment(process.env);
     this.#speech = options.speech ?? speechAdapterFromEnvironment(process.env);
-    if ([this.#adapter, this.#reasoning, this.#speech].some(adapter => adapter.transport === 'test-fake') && !options.allowTestAdapter) throw new Error('Injected provider fakes are restricted to explicit automated-test services');
-    if (this.#adapter.transport === 'test-fake' && [this.#reasoning, this.#speech].some(adapter => adapter.transport === 'vendor-test')) throw new Error('Simulated permissions cannot be combined with real provider transports');
+    this.#redaction = options.redaction ?? redactionAdapterFromEnvironment(process.env);
+    this.#checkout = options.checkout ?? checkoutAdapterFromEnvironment(process.env);
+    this.#progress = options.progress ?? new ProgressStore();
+    if ([this.#adapter, this.#reasoning, this.#speech, this.#redaction, this.#checkout].some(adapter => adapter.transport === 'test-fake') && !options.allowTestAdapter) throw new Error('Injected provider fakes are restricted to explicit automated-test services');
+    if (this.#adapter.transport === 'test-fake' && [this.#reasoning, this.#speech, this.#redaction, this.#checkout].some(adapter => adapter.transport === 'vendor-test')) throw new Error('Simulated permissions cannot be combined with real provider transports');
     this.#now = options.now ?? Date.now;
     this.#lifetime = options.lifetimeMs ?? 30 * 60_000;
     this.#limit = options.maxSessions ?? 1000;
   }
   #invalidate(session: StoredSession) {
     session.contextVersion++;
+    for (const turn of session.turns.values()) turn.controller.abort();
+    session.turns.clear();
     for (const work of session.work) work.abort();
     session.work.clear();
   }
@@ -77,8 +91,9 @@ export class BackendService {
     const state = result?.state ?? (session.mode === 'local-demo' ? 'local-demo' : 'unavailable');
     const next = mapCapabilities(session.ownerId, session.mode, session.contextVersion, state, result?.state === 'active' ? result.session : undefined, this.#now());
     const signature = (snapshot: CapabilitySnapshot) => JSON.stringify(Object.entries(snapshot.decisions).map(([key, decision]) => [key, decision.state, decision.provenance]));
-    const revisionChanged = result?.state === 'active' && result.session.etag !== session.providerRevision;
+    const revisionChanged = result?.state === 'active' && (result.session.etag !== session.providerRevision || !!session.legalAdult !== (result.session.ageStatus === 'LEGAL_ADULT'));
     if (state !== session.state || signature(next) !== signature(session.snapshot) || revisionChanged) this.#invalidate(session);
+    session.legalAdult = result?.state === 'active' && result.session.ageStatus === 'LEGAL_ADULT';
     session.state = state;
     session.snapshot = { ...next, contextVersion: session.contextVersion };
     if (result?.state === 'active') session.providerRevision = result.session.etag;
@@ -114,7 +129,7 @@ export class BackendService {
       hash: hashCredential(credential), ownerId, mode: request.mode, profile: request.syntheticProfile, jurisdiction: request.jurisdiction, optIns: { ...request.optIns },
       expiresAt: this.#now() + this.#lifetime, contextVersion: 1, state: request.mode === 'local-demo' ? 'local-demo' : 'unavailable',
       snapshot: mapCapabilities(ownerId, request.mode, 1, request.mode === 'local-demo' ? 'local-demo' : 'unavailable', undefined, this.#now()),
-      busy: false, work: new Set(), assessments: new Map(),
+      busy: false, work: new Set(), assessments: new Map(), turns: new Map(), purchases: new Map(),
     };
     this.#sessions.set(session.hash, session);
     try { await this.#resolve(session, true); } catch (error) { if (!(error instanceof BackendError) || error.code !== 'UNAVAILABLE') { this.#remove(session); throw error; } }
@@ -160,7 +175,7 @@ export class BackendService {
     const fixture = renderDemo({ mode: 'local-demo', persona: session.profile, fixtureId: request.fixtureId, variant: request.variant });
     const data = assessmentSchema.parse({ ...fixture.assessment, id: randomUUID(), ownerId: session.ownerId, mode: session.mode, contextVersion: session.contextVersion, createdAt: new Date(this.#now()).toISOString() });
     const expiresAt = Math.min(this.#now() + 5 * 60_000, session.expiresAt);
-    session.assessments.set(data.id, { data, expiresAt, fixtureId: request.fixtureId });
+    session.assessments.set(data.id, { data, expiresAt, fixtureId: request.fixtureId, variant: request.variant });
     return { assessment: structuredClone(data), referenceExpiresAt: new Date(expiresAt).toISOString(), fixture: fixture.fixture, challenge: fixture.challenge };
   }
   #owned(session: StoredSession, assessmentId: string): Assessment {
@@ -173,10 +188,10 @@ export class BackendService {
     const kid = this.#adapter.status();
     return providerListSchema.parse({ providers: [
       { provider: 'k-ID', status: kid.status, mode: session.mode, detail: kid.detail },
-      this.#reasoning.status(), this.#speech.status(),
+      this.#reasoning.status(), this.#speech.status(), this.#redaction.status(), this.#checkout.status(),
     ] });
   }
-  async explain(credential: string, input: unknown, signal?: AbortSignal) {
+  async explain(credential: string, input: unknown, signal?: AbortSignal, question?: string) {
     const request = coachingRequestSchema.parse(input);
     const session = this.#get(credential); this.#version(session, request.contextVersion);
     const assessment = this.#owned(session, request.assessmentId);
@@ -191,7 +206,7 @@ export class BackendService {
       if (this.#reasoning.transport === 'unavailable') throw new BackendError(503, 'UNAVAILABLE', this.#reasoning.status().detail);
       reply = await this.withAuthorizedOperation(credential, assessment.id, 'coaching', request.contextVersion, async context => {
         // Existing fixtures are synthetic. No arbitrary page/transcript proxy or raw audio input.
-        const explanation = parseExplanationForAssessment(await this.#reasoning.explain('Explain the owned synthetic fixture using its evidence and uncertainty.', context), context.assessment);
+        const explanation = parseExplanationForAssessment(await this.#reasoning.explain(question ?? 'Explain the owned synthetic fixture using its evidence and uncertainty.', context), context.assessment);
         if (explanation.spokenText !== explanation.explanation || new Set(explanation.evidenceIds).size !== explanation.evidenceIds.length) throw new BackendError(503, 'UNAVAILABLE', 'The explanation did not preserve caption or evidence constraints.');
         await context.assertCurrent();
         return explanation;
@@ -205,6 +220,11 @@ export class BackendService {
     });
     session.assessments.get(assessment.id)!.explanation = response;
     return structuredClone(response);
+  }
+  ask(credential: string, input: unknown, signal?: AbortSignal) {
+    const request = coachingRequestSchema.extend({ question: z.string().trim().min(1).max(2000) }).strict().parse(input);
+    if (this.#get(credential).mode !== 'provider-test') throw new BackendError(403, 'FORBIDDEN', 'Use the scripted local-demo explanation without a vendor question.');
+    return this.explain(credential, { assessmentId: request.assessmentId, contextVersion: request.contextVersion }, signal, request.question);
   }
   #practice(credential: string, input: unknown) {
     const request = quizRequestSchema.parse(input);
@@ -263,8 +283,10 @@ export class BackendService {
   #eligible(session: StoredSession, operation: Operation, version: number) {
     this.#version(session, version);
     if (session.mode !== 'provider-test' || session.state !== 'active') throw new BackendError(403, 'FORBIDDEN', 'Only a validated, active provider-test session can use protected operations.');
-    if (!this.#adapter.mappingConfirmed) throw new BackendError(503, 'UNAVAILABLE', 'The configured product AI permission mapping has not been confirmed.');
-    if (!session.optIns.cloudAnalysis || (['speech', 'voice'].includes(operation) && !session.optIns.spokenCoaching) || (operation === 'memory' && !session.optIns.memory) || !permitsProtectedOperation(session.snapshot, requirements[operation], version, this.#now())) throw new BackendError(403, 'FORBIDDEN', 'Every applicable capability and user opt-in must allow this operation.');
+    if (operation === 'checkout' && !session.legalAdult) throw new BackendError(403, 'FORBIDDEN', 'A server-bound adult context is required for standalone checkout.');
+    if (operation === 'checkout' && !this.#adapter.purchaseMappingConfirmed) throw new BackendError(503, 'UNAVAILABLE', 'The configured product purchase permission mapping has not been confirmed.');
+    if (operation !== 'checkout' && !this.#adapter.mappingConfirmed) throw new BackendError(503, 'UNAVAILABLE', 'The configured product AI permission mapping has not been confirmed.');
+    if ((operation !== 'checkout' && !session.optIns.cloudAnalysis) || (['speech', 'voice'].includes(operation) && !session.optIns.spokenCoaching) || (operation === 'memory' && !session.optIns.memory) || !permitsProtectedOperation(session.snapshot, requirements[operation], version, this.#now())) throw new BackendError(403, 'FORBIDDEN', 'Every applicable capability and user opt-in must allow this operation.');
   }
   async withAuthorizedOperation<T>(credential: string, assessmentId: string, operation: Operation, version: number, dispatch: (context: ProviderContext) => Promise<T>, externalSignal?: AbortSignal): Promise<T> {
     const session = this.#get(credential); this.#version(session, version); this.#owned(session, assessmentId);
@@ -288,6 +310,117 @@ export class BackendService {
       await assertCurrent(); return result;
     } finally { session.work.delete(controller); controller.abort(); }
   }
+  progressIdentity(credential: string, token?: string) {
+    const session = this.#get(credential);
+    if (session.progressId) throw new BackendError(409, 'CONFLICT', 'Progress identity is already bound for this session.');
+    const identity = this.#progress.identify(token); session.progressId = identity.id;
+    return { token: identity.token, progress: this.#progress.progress(identity.id) };
+  }
+  #progressOwner(credential: string) {
+    const session = this.#get(credential);
+    if (!session.progressId) throw new BackendError(409, 'CONFLICT', 'Initialize anonymous progress first.');
+    return session.progressId;
+  }
+  progress(credential: string) { return this.#progress.progress(this.#progressOwner(credential)); }
+  progressReset(credential: string) { return this.#progress.reset(this.#progressOwner(credential)); }
+  learningCatalog(credential: string) { this.#get(credential); return this.#progress.catalog(); }
+  learningIssue(credential: string, id: string) { return this.#progress.issue(this.#progressOwner(credential), id); }
+  learningSubmit(credential: string, input: unknown) { return this.#progress.submit(this.#progressOwner(credential), input); }
+  learningReveal(credential: string, id: string) { return this.#progress.reveal(this.#progressOwner(credential), id); }
+  createHandoff(credential: string, input: unknown) {
+    const request = coachingRequestSchema.parse(input), session = this.#get(credential);
+    this.#version(session, request.contextVersion); this.#owned(session, request.assessmentId);
+    if (session.mode !== 'local-demo') throw new BackendError(403, 'FORBIDDEN', 'Fixture handoffs cannot transfer provider authorization.');
+    for (const [key, value] of this.#handoffs) if (value.expiresAt <= this.#now()) this.#handoffs.delete(key);
+    if (this.#handoffs.size >= 1000) throw new BackendError(429, 'LIMITED', 'Too many pending fixture handoffs.');
+    const ticket = randomBytes(32).toString('base64url');
+    this.#handoffs.set(hashCredential(ticket), { session, assessmentId: request.assessmentId, expiresAt: this.#now() + 45000 });
+    return { ticket, expiresInSeconds: 45, notice: 'One-time local fixture handoff. No provider authorization is transferred.' };
+  }
+  redeemHandoff(credential: string, input: unknown) {
+    const request = z.object({ ticket: z.string().regex(/^[A-Za-z0-9_-]{43}$/), contextVersion: z.number().int().positive() }).strict().parse(input);
+    const target = this.#get(credential); this.#version(target, request.contextVersion);
+    const key = hashCredential(request.ticket), handoff = this.#handoffs.get(key);
+    if (!handoff || handoff.expiresAt <= this.#now()) throw new BackendError(404, 'NOT_FOUND', 'Fixture handoff expired or was already used.');
+    this.#alive(handoff.session); this.#owned(handoff.session, handoff.assessmentId);
+    if (target.mode !== 'local-demo') throw new BackendError(403, 'FORBIDDEN', 'Redeem fixtures in a separate local-demo session.');
+    const source = handoff.session.assessments.get(handoff.assessmentId)!;
+    const owned = this.createAssessment(credential, { contextVersion: target.contextVersion, fixtureId: source.fixtureId, variant: source.variant });
+    this.#handoffs.delete(key); return owned;
+  }
+  async beginVoice(credential: string, input: unknown, signal?: AbortSignal) {
+    const request = voiceBeginSchema.parse(input), session = this.#get(credential);
+    this.#version(session, request.contextVersion); this.#owned(session, request.assessmentId);
+    if (session.profile !== 'adult') throw new BackendError(403, 'FORBIDDEN', 'Only a consenting adult presenter may use this test recording flow.');
+    if (this.#redaction.transport === 'unavailable' || this.#reasoning.transport === 'unavailable') throw new BackendError(503, 'UNAVAILABLE', this.#redaction.transport === 'unavailable' ? this.#redaction.status().detail : this.#reasoning.status().detail);
+    await this.withAuthorizedOperation(credential, request.assessmentId, 'voice', request.contextVersion, async context => { await context.assertCurrent(); }, signal);
+    signal?.throwIfAborted();
+    if (!session.legalAdult) throw new BackendError(403, 'FORBIDDEN', 'The server-bound provider session must establish adult eligibility for a presenter recording.');
+    for (const [id, turn] of session.turns) if (turn.expiresAt <= this.#now()) { turn.controller.abort(); session.turns.delete(id); }
+    if (session.turns.size) throw new BackendError(409, 'CONFLICT', 'Stop the current voice turn before starting another.');
+    const turnId = randomUUID(); session.turns.set(turnId, { assessmentId: request.assessmentId, version: request.contextVersion, controller: new AbortController(), expiresAt: this.#now() + 60000, stage: 'ready' });
+    return { turnId, contextVersion: request.contextVersion, stage: 'ready' };
+  }
+  cancelVoice(credential: string, turnId: string) {
+    const session = this.#get(credential), turn = session.turns.get(turnId);
+    if (!turn) throw new BackendError(404, 'NOT_FOUND', 'Owned voice turn unavailable.');
+    turn.controller.abort(); session.turns.delete(turnId); return { turnId, stage: 'stopped' };
+  }
+  async voice(credential: string, turnId: string, input: unknown, external?: AbortSignal) {
+    const request = voiceRecordingSchema.parse(input), session = this.#get(credential), turn = session.turns.get(turnId);
+    this.#version(session, request.contextVersion);
+    if (!turn || turn.version !== request.contextVersion || turn.expiresAt <= this.#now()) throw new BackendError(404, 'NOT_FOUND', 'Owned voice turn unavailable or expired.');
+    if (turn.stage !== 'ready') throw new BackendError(409, 'CONFLICT', 'This recording was already submitted.');
+    const audio = Buffer.from(request.audioBase64, 'base64');
+    if (!audio.length || audio.length > 2 * 1024 * 1024 || audio.toString('base64') !== request.audioBase64) throw new BackendError(400, 'INVALID_REQUEST', 'Invalid bounded recording.');
+    turn.stage = 'redacting';
+    const signal = AbortSignal.any([turn.controller.signal, ...(external ? [external] : [])]);
+    try {
+      const response = await this.withAuthorizedOperation(credential, turn.assessmentId, 'voice', request.contextVersion, async context => {
+        if (!session.legalAdult) throw new BackendError(403, 'FORBIDDEN', 'Adult presenter eligibility changed.');
+        const redacted = await this.#redaction.redact(audio, request.mimeType, context); audio.fill(0);
+        await context.assertCurrent(); turn.stage = 'reasoning';
+        const reply = parseExplanationForAssessment(await this.#reasoning.explain(redacted.redactedText, context), context.assessment);
+        if (reply.spokenText !== reply.explanation || new Set(reply.evidenceIds).size !== reply.evidenceIds.length) throw new BackendError(503, 'UNAVAILABLE', 'Voice reply did not preserve captions and evidence.');
+        await context.assertCurrent(); turn.stage = 'preparing-speech';
+        let speech: { audioBase64: string; mimeType: 'audio/mpeg' } | undefined, speechUnavailable: string | undefined;
+        try {
+          const output = await this.#speech.speak(reply.spokenText, context); await context.assertCurrent();
+          speech = { audioBase64: Buffer.from(output.audio).toString('base64'), mimeType: 'audio/mpeg' };
+        } catch { await context.assertCurrent(); speechUnavailable = 'Inworld speech unavailable. Continue with the matching text captions.'; }
+        return voiceResultSchema.parse({ turnId, contextVersion: request.contextVersion, source: 'Modulate → Gemini → Inworld', reply, ...speech, ...(speechUnavailable ? { speechUnavailable } : {}), notice: context.executionMode === 'test-fake' ? 'Automated simulated provider responses only.' : 'Provider-test reply about synthetic evidence. No production identity assurance.' });
+      }, signal);
+      this.#version(session, request.contextVersion); signal.throwIfAborted();
+      if (session.turns.get(turnId) !== turn) throw new BackendError(409, 'CONFLICT', 'Voice turn was cancelled.');
+      return response;
+    } finally { audio.fill(0); turn.controller.abort(); if (session.turns.get(turnId) === turn) session.turns.delete(turnId); }
+  }
+  async purchase(credential: string, input: unknown, signal?: AbortSignal) {
+    const request = purchaseRequestSchema.parse(input), session = this.#get(credential);
+    this.#version(session, request.contextVersion); this.#owned(session, request.assessmentId);
+    const payload = JSON.stringify(request), previous = session.purchases.get(request.idempotencyKey);
+    if (previous) {
+      if (previous.payload !== payload) throw new BackendError(409, 'CONFLICT', 'Purchase retry changed.');
+      return structuredClone(previous.result);
+    }
+    if (session.purchases.size >= 20) throw new BackendError(429, 'LIMITED', 'Purchase request limit reached.');
+    const result = purchaseResultSchema.parse({ id: randomUUID(), itemId: 'ozone-theme', amountMinor: 100, currency: 'USD', state: 'blocked_by_policy', mode: session.mode, reason: 'Purchases are off. Child requests require a verified parent link, parent policy and saved-method approval prerequisites. No checkout or charge was called.', checkoutCalls: 0, chargeCalls: 0 });
+    // Reserve synchronously: retries cannot dispatch a second checkout.
+    session.purchases.set(request.idempotencyKey, { payload, result });
+    if (session.profile !== 'adult' || session.mode !== 'provider-test') return structuredClone(result);
+    try {
+      const output = await this.withAuthorizedOperation(credential, request.assessmentId, 'checkout', request.contextVersion, async context => {
+        if (!session.legalAdult) throw new BackendError(403, 'FORBIDDEN', 'Eligible adult provider context required.');
+        if (this.#checkout.transport === 'unavailable') throw new BackendError(503, 'UNAVAILABLE', this.#checkout.status().detail);
+        result.checkoutCalls++; return this.#checkout.checkout(result.id, context);
+      }, signal);
+      result.state = 'checkout_ready'; result.checkoutUrl = output.checkoutUrl;
+      result.reason = 'Hosted sandbox checkout for an eligible adult and our optional Ozone theme only. No charge or completed order is claimed. This does not implement parent saved-method purchases.';
+    } catch (cause) {
+      result.state = 'unavailable'; result.reason = cause instanceof BackendError ? cause.message : 'Sandbox checkout unavailable. No charge was attempted.';
+    }
+    return purchaseResultSchema.parse(result);
+  }
   // Future validated webhook handlers can invalidate a bound reference here. No HTTP webhook is exposed.
-  close() { for (const session of this.#sessions.values()) this.#remove(session); }
+  close() { for (const session of this.#sessions.values()) this.#remove(session); this.#handoffs.clear(); this.#progress.close(); }
 }

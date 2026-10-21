@@ -1,6 +1,6 @@
 import {
   coachingResponseSchema, ownedAssessmentResponseSchema, providerListSchema,
-  quizFeedbackSchema, quizResponseSchema, sessionViewSchema, structuredErrorSchema, type DemoRequest,
+  purchaseResultSchema, quizFeedbackSchema, quizResponseSchema, sessionViewSchema, structuredErrorSchema, type DemoRequest,
 } from '@beacon/contracts';
 import type { z } from 'zod';
 
@@ -10,6 +10,7 @@ export type Lesson = z.infer<typeof ownedAssessmentResponseSchema> & {
   quiz: z.infer<typeof quizResponseSchema>;
   providers: z.infer<typeof providerListSchema>['providers'];
   answer(choiceId: string, signal: AbortSignal): Promise<z.infer<typeof quizFeedbackSchema>>;
+  purchase(signal: AbortSignal): Promise<z.infer<typeof purchaseResultSchema>>;
   dispose(): void;
 };
 export class LearningError extends Error {
@@ -30,7 +31,7 @@ async function request(path: string, body: unknown, credential?: string, signal?
 }
 // Application bearer credentials live only in this closure: never URL/storage,
 // page markup, extension messages or diagnostic logs.
-export async function loadLesson(input: DemoRequest, signal: AbortSignal): Promise<Lesson> {
+export async function loadLesson(input: DemoRequest, signal: AbortSignal, handoff?: string): Promise<Lesson> {
   let credential: string | undefined;
   const dispose = () => {
     if (!credential) return;
@@ -49,7 +50,7 @@ export async function loadLesson(input: DemoRequest, signal: AbortSignal): Promi
     signal.throwIfAborted();
     const session = sessionViewSchema.parse(view);
     if (session.mode !== 'local-demo') throw new LearningError('UNAVAILABLE', 'Offline teaching requires a local-demo session.');
-    const owned = ownedAssessmentResponseSchema.parse(await request('/api/assessments', {
+    const owned = ownedAssessmentResponseSchema.parse(await request(handoff ? '/api/handoffs/redeem' : '/api/assessments', handoff ? { ticket: handoff, contextVersion: session.contextVersion } : {
       contextVersion: session.contextVersion, fixtureId: input.fixtureId, variant: input.variant,
     }, credential, signal));
     if (owned.assessment.ownerId !== session.ownerId || owned.assessment.contextVersion !== session.contextVersion || owned.assessment.mode !== 'local-demo') throw new LearningError('UNAVAILABLE', 'The assessment does not match this application session.');
@@ -68,7 +69,8 @@ export async function loadLesson(input: DemoRequest, signal: AbortSignal): Promi
         }, credential, answerSignal));
         if (feedback.assessmentId !== ref.assessmentId || feedback.contextVersion !== ref.contextVersion || feedback.challengeId !== quiz.challenge.id) throw new LearningError('UNAVAILABLE', 'The feedback does not match this lesson.');
         return feedback;
-      }, dispose,
+      },
+      async purchase(purchaseSignal) { return purchaseResultSchema.parse(await request('/api/purchases', { ...ref, itemId: 'ozone-theme', idempotencyKey: crypto.randomUUID() }, credential, purchaseSignal)); }, dispose,
     };
   } catch (error) { dispose(); throw error; }
 }

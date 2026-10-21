@@ -12,5 +12,8 @@
     "@beacon/fixtures": "0.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
+  },
+  "optionalDependencies": {
+    "@k-id/core": "file:../../vendor/k-id-core-web.tgz"
   }
 }
