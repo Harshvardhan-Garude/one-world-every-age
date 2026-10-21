@@ -2,7 +2,7 @@
 
 Ozone Layer is a browser safety companion for learning to notice online risks, understand evidence and choose a safer next step. This local demo follows fictional Jimmy, 11, and Susan, 68. Basic lessons remain free; real family purchases and full live voice remain blocked.
 
-The `feat/ozone-demo` integration includes team main `8daeb8cc92a9c06520928a8b38080be72a60e116` through merge `2274e7317c98a0db2ca4de017f29b4e679ab6156`. It preserves the existing permission boundary, provider adapters and optional private SDK integration. See [the demo runbook](docs/DEMO.md) for the presentation script, verification record and remaining blockers.
+The `feat/ozone-demo` integration includes team main `b20ed1ad404e1a91dce50c37bd063c819aff9da8` (merged PR #8), preserving the teammate fork merge `bca596637e56ee4542f40405981b0f54bf3fb2e2`. The new increment is recorded at `0fe858a`, reconciled through merge `a304b3b`. It preserves the existing permission boundary, provider adapters and optional private SDK integration. See [the demo runbook](docs/DEMO.md) for the presentation script, verification record and remaining blockers.
 
 ## Run locally
 
