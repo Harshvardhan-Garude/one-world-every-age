@@ -1,25 +1,28 @@
 # Implementation work plan
 
-Source: [functional specification v1.1](../INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md). Status: W00/W01 merged in PR #4. W02 backend code is in review with live k-ID verification/configuration still unresolved; W03–W13 remain unclaimed and not started. This document assigns responsibility by role without inventing teammate commitments. Replace the owner cell with a person's name when they claim a task.
+Source: [functional specification v1.2](../INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md) for Ozone Layer (working title). Status: W00/W01 merged in PR #4. The local integration contains W02, offline teaching, provider adapters and a companion quiz flow; real k-ID/voice verification and full W03–W15 acceptance are incomplete. See [the audited integration state](INTEGRATION.md). Roles were agreed by the team on October 21; each task's owner follows from its role.
 
-## Three roles
+## Three roles and the coordinator
 
-| Role | Main ownership | First task after the shared kickoff |
-| --- | --- | --- |
-| A — Backend and permissions | Sessions, k-ID mapping, authorization, ownership, persistence, cancellation enforcement | W02 provider access/session spike |
-| B — Extension and experience | Site access, extraction/rules, warnings, companion screens and accessibility | W03 P01/P16 extension slice |
-| C — AI and voice | Gemini reasoning, Inworld output, Modulate redaction, provider failure paths | W06 contract review and provider-access inventory |
+| Role | Person | Main ownership | First task |
+| --- | --- | --- | --- |
+| A — Backend and permissions | Harsh | Sessions, k-ID mapping, authorization, ownership, persistence, cancellation enforcement, purchase policy and webhook handling | W02 provider access/session spike, including the k-ID Transactions check for W14 |
+| B — Extension and experience | Joseph | Site access, extraction/rules, warnings, companion screens, parent dashboard and consent/purchase screens, accessibility | W03 P01/P16 extension slice |
+| C — AI and voice | Angela with Joseph | Gemini reasoning, Inworld output, Modulate redaction, provider failure paths | W06 contract review and provider-access inventory |
+| Coordinator | Angela | Merges, demo flow, rehearsal and submission; does not own every task | Confirm the track at the help desk; schedule integration checkpoints |
 
-Claim work by editing the task's owner/status in a small PR, or linking an agreed issue in its evidence cell. Allowed task states: **unclaimed**, **ready**, **in progress**, **blocked**, **in review**, **done**. A blocked task records the exact missing input and next action; mocks do not erase live-integration blockers. Choose one integration coordinator from the team at kickoff. That person coordinates merges and the demo, without owning every task.
+Update work by editing the task's owner/status in a small PR, or linking an agreed issue in its evidence cell. Allowed task states: **unclaimed**, **ready**, **in progress**, **blocked**, **in review**, **done**. A blocked task records the exact missing input and next action; mocks do not erase live-integration blockers.
 
 ## Kickoff and sequence
 
-1. Agree on the roles and coordinator. Read CONTRIBUTING and spec sections 4, 6, 8.1, 10, and 15–17.
-2. Complete W00 and W01 together before independent code branches diverge. Approve one workspace, shared schemas, P01/P16 expected outputs, and provider mode labels.
-3. Start the real k-ID access/session spike early. Build P01/P16 locally while live access is being resolved. Never invent vendor interfaces to hide an access blocker.
+1. Roles and coordinator are agreed (above). Read CONTRIBUTING and spec sections 4, 6, 8.1, 10, 13.1 and 15–17.
+2. W00 and W01 are merged (PR #4). New branches start from that `main`.
+3. Start the real k-ID access/session spike early. Build P01/P16 locally while live access is being resolved. Never invent vendor interfaces to hide an access blocker. Early, ask the k-ID mentor to enable Transactions for our organization, and ask FastSpring's on-site contact the two open questions in spec 13.1.
 4. Integrate extension → owned assessment → evidence/safe action → optional preset challenge. Keep this slice runnable as providers are added.
-5. Add Gemini text → Inworld output → Modulate input in that order. Demonstrate server denial and Stop/revocation before expanding the happy path.
-6. Complete replay-safe learning, P08, and the remaining catalog. Reserve the final hour before the event's confirmed submission deadline for integration, regression, documentation and rehearsal. Event times in the spec require confirmation before operational use.
+5. After the core safety flow (M1–M3), build the approve-each-request purchase path (W14), in FastSpring test mode. If a real test charge isn't confirmed in time, use FastSpring's documented simulated charge and label it.
+6. Add Gemini text → Inworld output → Modulate input in that order. Demonstrate server denial and Stop/revocation before expanding the happy path.
+7. Complete the monthly-limit and notify-after-purchase rules, replay-safe learning, P08, and the remaining catalog. Reserve the final hour before the event's confirmed submission deadline for integration, regression, documentation and rehearsal. Event times in the spec require confirmation before operational use.
+8. Stretch, only if M1–M3 and M6 pass end to end with time left: W15 learning game.
 
 ## Delivery gates
 
@@ -31,29 +34,32 @@ Claim work by editing the task's owner/status in a small PR, or linking an agree
 | M3 — Voice teaching moment | One adult-presenter Modulate → Gemini → Inworld turn | Captions match validated reply, only redacted text reaches reasoning, Stop/revocation discards late work; per-stage live/mock evidence |
 | M4 — Learning and full coverage | One-credit/replay flow, P08, P01–P18 and full acceptance catalog | Deterministic rubric/award tests, scenario outcomes and browser/provider verification records |
 | M5 — Reviewable demonstration | Two-minute rehearsal and reproducible handoff | Real extension smoke result, provider-status table, exact run instructions and remaining limitations |
+| M6 — Parent-approved purchase | One child request → k-ID parent approval → FastSpring test charge on the saved method, plus one denied request | Verified webhooks from both providers, policy enforced in the backend, no charge on denied/expired/disabled, per-stage live or simulated label |
 
 An unmet gate remains incomplete. If time expires, report the working slice and list unmet requirements; do not relabel full iteration 1 as complete.
 
 ## Claimable tasks
 
-W00/W01 are merged and W02 is in review; subsequent tasks remain **unclaimed** and the role below is the proposed owner. Dependencies name integration prerequisites, not a prohibition on independent design or access checks. Use `feat/<task-name>`, `fix/<task-name>`, or `chore/<task-name>` branches under CONTRIBUTING.
+Owners follow the agreed roles: A = Harsh, B = Joseph, C = Angela with Joseph, Coordinator = Angela. Dependencies name integration prerequisites, not a prohibition on independent design or access checks. Use `feat/<task-name>`, `fix/<task-name>`, or `chore/<task-name>` branches under CONTRIBUTING.
 
-| ID | Deliverable | Proposed owner | Depends on | Status | Evidence / PR |
+| ID | Deliverable | Owner | Depends on | Status | Evidence / PR |
 | --- | --- | --- | --- | --- | --- |
-| W00 | Workspace and reproducible developer setup | Bootstrap author | — | done | [Foundation evidence](FOUNDATION.md) · upstream PR #4 |
-| W01 | Shared contracts and P01/P16 baseline fixtures | Bootstrap author | W00 | done | [Foundation evidence](FOUNDATION.md) · upstream PR #4 |
-| W02 | Authentication, k-ID sessions and capability enforcement | Backend author; review pending | W01 | in review | [Backend evidence/blockers](BACKEND.md) · live k-ID not verified |
-| W03 | MV3 site access, extraction, local rules and popup | B | W01 | unclaimed | — |
-| W04 | Companion onboarding, finding view and demo navigation | B | W01; W02 for live flow | unclaimed | — |
-| W05 | Extension-to-companion assessment flow and warnings | A + B | W02–W04 | unclaimed | — |
-| W06 | Gemini evidence-based typed coaching | C | W01/W02/W05 | unclaimed | — |
-| W07 | Inworld speech output and captions | C + B | W06 | unclaimed | — |
-| W08 | Modulate push-to-talk and cancellable voice turns | C + A + B | W02/W07 | unclaimed | — |
-| W09 | Curated challenges, progress and badges | A + B | W01/W04; W02 for owned accounts | unclaimed | — |
-| W10 | Privacy controls, deletion, revocation and lifecycle cleanup | A + B + C | W02/W05; W08 for voice cleanup | unclaimed | — |
-| W11 | Full scenario catalog and all-ages copy | B + C | W01/W05 | unclaimed | — |
-| W12 | Automated regression and actual extension smoke validation | A + B + C | W03–W11 as each lands | unclaimed | — |
-| W13 | Runbook, honest provider report and two-minute rehearsal | Coordinator + A + B + C | W12; record all unmet gates | unclaimed | — |
+| W00 | Workspace and reproducible developer setup | Harsh (all reviewed) | — | done | [Foundation evidence](FOUNDATION.md) · PR #4 |
+| W01 | Shared contracts and P01/P16 baseline fixtures | Harsh (all reviewed) | W00 | done | [Foundation evidence](FOUNDATION.md) · PR #4 |
+| W02 | Authentication, k-ID sessions and capability enforcement | Harsh (A) | W01 | in progress | [W02 code and live blockers](BACKEND.md) |
+| W03 | MV3 site access, extraction, local rules and popup | Joseph (B) | W01 | in progress | Manual shell only; extraction/detection missing |
+| W04 | Companion onboarding, finding view and demo navigation | Joseph (B) | W01; W02 for live flow | in progress | [Offline teaching wired; widget optional](INTEGRATION.md) |
+| W05 | Extension-to-companion assessment flow and warnings | Harsh + Joseph (A + B) | W02–W04 | in progress | Owned companion flow wired; extension handoff pending |
+| W06 | Gemini evidence-based typed coaching | Angela + Joseph (C) | W01/W02/W05 | in progress | Adapter/mock tests; standalone Gemini diagnostic only |
+| W07 | Inworld speech output and captions | Angela + Joseph (C + B) | W06 | blocked | Adapter/mock tests; credentials and playback UI pending |
+| W08 | Modulate push-to-talk and cancellable voice turns | Angela + Joseph + Harsh (C + B + A) | W02/W07 | blocked | Modulate credentials and redaction/voice implementation pending |
+| W09 | Curated challenges, progress and badges | Harsh + Joseph (A + B) | W01/W04; W02 for owned accounts | in progress | Unscored practice works; progress/awards missing |
+| W10 | Privacy controls, deletion, revocation and lifecycle cleanup | All (A + B + C) | W02/W05; W08 for voice cleanup | ready | — |
+| W11 | Full scenario catalog and all-ages copy | Joseph + Angela (B + C) | W01/W05 | ready | — |
+| W12 | Automated regression and actual extension smoke validation | All (A + B + C) | W03–W11 and W14 as each lands | in progress | [Combined verification](INTEGRATION.md) |
+| W13 | Runbook, honest provider report and two-minute rehearsal | Angela (Coordinator) + all | W12; record all unmet gates | ready | — |
+| W14 | Parent consent, purchase policy and FastSpring charges | Harsh (A) + Joseph (B) | W02; W04 for screens | ready | After core safety flow; planning only, no checkout/webhooks |
+| W15 | Stretch: offline learning game after a block | Joseph (B) | W05 and M6; only with time left | ready | — |
 
 ### W00 — Bootstrap
 
@@ -141,6 +147,19 @@ W00/W01 are merged and W02 is in review; subsequent tasks remain **unclaimed** a
 - Rehearse spec section 16: P01 warning → preset participation → teen adaptation → adult voice turn → second-country test-session difference → revocation/text fallback and learning result.
 - Done when the runbook is reproducible, the two-minute flow is timed, factual claims match evidence, event requirements/track are confirmed, and remaining incomplete requirements are disclosed. Pre-recorded/scripted audio remains labeled. No deployment or extension publication is included.
 
+### W14 — Parent-approved purchases
+
+- First, confirm the prerequisites: k-ID has enabled Transactions for our organization, and Transactions and Purchase Controls are switched on for our product in Compliance Studio. Also confirm with FastSpring how to charge a varying amount to a saved method, and whether a card can be saved without a purchase (spec 13.1). Record each answer or blocker.
+- Backend (Harsh): owned purchase policy per child (off, approve each, monthly limit, notify after purchase); purchase requests with a server-generated ID; `POST /transaction/request-purchase` to k-ID; the `Transaction.PurchaseApprovalResult` webhook; charging the saved method through FastSpring; FastSpring order/charge webhooks; `POST /transaction/push` reporting. Verify both providers' webhook signatures on the raw body, ignore repeat deliveries by ID, and recheck policy and limits right before charging.
+- Experience (Joseph): parent consent screen, FastSpring hosted checkout to save a card, spending-rule settings, child request screen with clear pending/approved/denied/expired states, and parent purchase history.
+- Done when an approved request charges exactly once, denied/expired/disabled requests never charge, a request over the limit follows the parent's rule, repeated webhooks don't double-charge, client-edited prices or approvals are rejected, and each stage is labeled live or simulated.
+
+### W15 — Stretch: learning game after a block
+
+- A small offline HTML game in the style of Chrome's dinosaur game, opened from a blocked-content screen. Short rounds teach why that content was blocked and how to use the tool more safely, with age-appropriate copy.
+- Optional: it never stands between the user and the warning, the safe action, or dismissal. It earns no mastery credit unless it uses a curated challenge under spec section 10. No sound unless spoken coaching is enabled. Keyboard playable, with reduced-motion support.
+- Done when it can be opened from at least the P02 restriction and the P01 concern, works without a network connection, and can be closed at any time.
+
 ## Acceptance coverage
 
 The exact criteria remain in spec section 15. Each row below covers every ID in its range; owners must replace planned coverage with evidence. Mapping an ID here is not a passing test.
@@ -163,6 +182,8 @@ The exact criteria remain in spec section 15. Each row below covers every ID in 
 | S01–S02 | W02/W05–W08/W10 | Network, persistence and logging inspection under denied consent/memory |
 | S03–S04 | W02/W06/W09/W10 | Owned deletion, injection resistance and authority boundaries |
 | S05–S06 | W04/W05/W11/W12 | No external actions; keyboard and screen-reader flows |
+| PU01–PU08 | W14/W12 | Approved/denied/expired/limit/disabled outcomes, webhook verification and replay, price tampering, card-data boundary |
+| L01 | W15 | Learning game is optional, offline, closable and never blocks the warning |
 
 ## PR and handoff checklist
 

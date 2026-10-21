@@ -2,7 +2,7 @@
 
 Historical foundation checkpoint, merged upstream in PR #4. W02 now adds authenticated backend sessions and owned fixture references; see [the current backend handoff](BACKEND.md). The remaining text records the original W00/W01 scope and results, rather than claiming W02 has no authentication.
 
-This is the first implementation boundary. W02–W13 remain open. See the README for setup; this file records decisions, exact coverage and the handoff.
+This is the first implementation boundary, approved and merged in PR #4. W02–W15 remain open. The product's working title is now Ozone Layer; internal `@beacon/*` and `BEACON_*` identifiers keep the earlier name (see the README's Naming section). See the README for setup; this file records decisions, exact coverage and the handoff.
 
 ## Implemented layout
 
@@ -94,6 +94,6 @@ The automated test opens the popup URL directly; that supplies no toolbar gestur
 - **Role B / W03/W04:** enabled-origin registration, visible extraction/exclusions, actual local rules/deduplication, and full onboarding/settings/screens. Fixture outcomes and access notices are scaffolding.
 - **Role C / W06 onward:** confirm SDK/auth/model/retention contracts before Gemini, then validated Inworld output and Modulate redaction. Preserve captions, consent and backend checks.
 
-Before W08 collects a real recording, reconcile CONTRIBUTING's real-player-voice prohibition with the spec's presenter-microphone proposal and record the agreed interpretation. No voice was collected here; future synthetic audio belongs only in `assets/synthetic`. Do not weaken policy to make a test pass.
+Voice-data rule, reconciled in CONTRIBUTING: only a consenting adult presenter's live turn may be processed, in memory, and no recording is ever committed, stored or logged; no child's or real player's voice is used. No voice was collected here; future synthetic audio belongs only in `assets/synthetic`. Do not weaken policy to make a test pass.
 
 No deployment, provider verification, merge or extension publication is included. Foundation review does not mark subsequent tasks complete.

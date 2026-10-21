@@ -46,7 +46,7 @@ try {
   assert.equal(await page.getByTestId('fixture-title').textContent(), 'The free reward offer');
   assert.match(await page.locator('main').textContent(), /gifts-check.example/);
   for (const persona of ['teen', 'adult', 'child']) {
-    const response = page.waitForResponse(r => r.url().endsWith('/api/demo/assessments') && r.status() === 200);
+    const response = page.waitForResponse(r => r.url().includes('/api/challenges?') && r.status() === 200);
     await page.locator('#persona').selectOption(persona);
     await response;
     await page.getByTestId('fixture-title').waitFor();
@@ -59,8 +59,29 @@ try {
   await page.getByLabel('Example variant').selectOption('ambiguous');
   await page.getByText('? Not enough evidence', { exact: true }).waitFor();
   await page.getByRole('radio').first().check();
-  await page.getByRole('button', { name: 'Preview my choice' }).click();
-  await page.getByText(/No credit was awarded/).waitFor();
+  await page.getByRole('button', { name: 'Check my answer' }).click();
+  await page.getByTestId('teaching-feedback').filter({ hasText: 'Server-checked local-demo practice' }).waitFor();
+  assert.match(await page.getByTestId('teaching-feedback').textContent(), /Take another look/);
+  for (const fixtureId of ['P01', 'P16']) {
+    await page.getByRole('button', { name: fixtureId === 'P01' ? 'P01 · Game reward' : 'P16 · Learning page' }).click();
+    await page.getByRole('radio').first().waitFor();
+    // Select by visible meaning; answer keys remain in the server-only rubric.
+    await page.getByRole('radio', { name: fixtureId === 'P01' ? 'The address and what the page asks me to share' : 'Read the context and check what the page actually asks me to do' }).check();
+    await page.getByRole('button', { name: 'Check my answer' }).click();
+    await page.getByTestId('teaching-feedback').filter({ hasText: 'That observation fits the lesson.' }).waitFor();
+    assert.match(await page.getByTestId('teaching-feedback').textContent(), /No mastery credit was awarded/);
+  }
+  const storage = await page.evaluate(() => ({ local: Object.keys(localStorage), session: Object.keys(sessionStorage) }));
+  assert.deepEqual(storage, { local: [], session: [] }, 'Application bearer credentials must stay out of browser storage');
+  assert.equal(new URL(page.url()).search, '', 'Navigation must not contain application credentials');
+  // Force a stale/expired answer response: the UI must show recovery and never
+  // mistake an HTTP failure for server-checked success.
+  await page.route('**/api/challenges/*/attempts', route => route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ code: 'CONFLICT', message: 'Context changed.', retryable: true, requestId: 'smoke-stale' }) }));
+  await page.getByRole('button', { name: 'Check my answer' }).click();
+  await page.getByRole('alert').filter({ hasText: 'expired or changed' }).waitFor();
+  await page.unroute('**/api/challenges/*/attempts');
+  await page.getByRole('button', { name: 'Reload example' }).click();
+  await page.getByRole('radio').first().waitFor();
   await page.getByRole('button', { name: 'Reset demo' }).click();
   await page.getByText('⚑ Concern in this fixture', { exact: true }).waitFor();
   assert.equal(await page.getByRole('radio').first().isChecked(), false);
@@ -86,7 +107,7 @@ try {
   });
   assert.deepEqual(privateFlow, { created: 201, owned: 201, correctOwner: true, fixtureSource: 'fixture', logout: 200, replay: 401 });
   console.log('PASS: browser-origin private local-demo session, owned assessment and logout/replay via companion proxy; no vendor call or credential logged.');
-  console.log('PASS: built companion → actual backend, child/teen/adult contexts, P01/P16 and ambiguous variant, preferences, preview without credit, reset, mobile width, inert local fixture pages.');
+  console.log('PASS: built companion → authenticated assessment → scripted explanation → curated P01/P16 quiz → server-checked feedback, child/teen/adult contexts, stale-context recovery, no bearer storage/URLs, preferences, reset, mobile width and inert fixtures. No vendor calls or mastery awards.');
   const worker = browser.serviceWorkers()[0] ?? await browser.waitForEvent('serviceworker', { timeout: 10000 });
   const extensionId = new URL(worker.url()).hostname;
   const popup = await browser.newPage();

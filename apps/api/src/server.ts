@@ -61,8 +61,15 @@ export function createApp(options: ServerOptions = {}) {
         const body = onboardingRequestSchema.parse(await readJson(req));
         json(res, 201, await backend.start(body)); return;
       }
+      // Preserve the widget's honest redemption blocker. This never grants an
+      // application session or accepts a browser session ID as authorization.
+      if (req.method === 'POST' && url.pathname === '/api/kid/claim') {
+        stage = 'kid-claim';
+        z.object({ claimToken: z.string().min(8).max(2048) }).strict().parse(await readJson(req));
+        json(res, 202, { received: true, redeemed: false, status: 'blocked', reason: 'k-ID claim redemption and owned-session binding are unverified. The widget cannot authorize application operations.' }); return;
+      }
       const quizAttempt = /^\/api\/challenges\/(address-and-request|context-before-keywords)\/attempts$/.exec(url.pathname);
-      const privateRoutes = ['/api/onboarding/context', '/api/onboarding/refresh', '/api/onboarding/logout', '/api/capabilities', '/api/assessments', '/api/coaching/messages', '/api/voice/speech', '/api/providers', '/api/challenges'];
+      const privateRoutes = ['/api/onboarding/context', '/api/onboarding/refresh', '/api/onboarding/logout', '/api/capabilities', '/api/assessments', '/api/coaching/messages', '/api/voice/speech', '/api/providers', '/api/challenges', '/api/kid/session'];
       if (privateRoutes.includes(url.pathname) || quizAttempt) {
         stage = url.pathname === '/api/coaching/messages' ? 'coaching' : url.pathname === '/api/voice/speech' ? 'speech' : quizAttempt || url.pathname === '/api/challenges' ? 'practice' : url.pathname === '/api/assessments' ? 'owned-assessment' : 'session';
         const credential = bearer(req);
@@ -77,6 +84,9 @@ export function createApp(options: ServerOptions = {}) {
         }
         if (req.method === 'POST') {
           const body = await readJson(req);
+          // Widget session reads use only the server-bound W02 reference.
+          // Arbitrary browser-supplied vendor IDs are deliberately rejected.
+          if (url.pathname === '/api/kid/session') { const request = refreshRequestSchema.parse(body); json(res, 200, await backend.refresh(credential, request.contextVersion)); return; }
           if (url.pathname === '/api/onboarding/context') { json(res, 200, await backend.updateContext(credential, contextUpdateSchema.parse(body))); return; }
           if (url.pathname === '/api/onboarding/refresh') { const request = refreshRequestSchema.parse(body); json(res, 200, await backend.refresh(credential, request.contextVersion)); return; }
           if (url.pathname === '/api/onboarding/logout') { z.object({}).strict().parse(body); json(res, 200, backend.logout(credential)); return; }

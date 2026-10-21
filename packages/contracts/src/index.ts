@@ -152,6 +152,9 @@ export const fixtureSchema = z.object({
   expectedState: assessmentSchema.shape.state, expectedSeverity: assessmentSchema.shape.severity,
   explanation: textSchema, uncertainty: textSchema, safeAction: textSchema,
 }).strict();
+export const ownedAssessmentResponseSchema = z.object({
+  assessment: assessmentSchema, referenceExpiresAt: timestamp, fixture: fixtureSchema, challenge: publicChallengeSchema,
+}).strict();
 export type DemoRequest = z.infer<typeof demoRequestSchema>;
 export type Assessment = z.infer<typeof assessmentSchema>;
 export type PublicChallenge = z.infer<typeof publicChallengeSchema>;
