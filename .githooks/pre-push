@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Pre-push guard: refuses a push if any commit being pushed adds a secret,
+# a banned file, or a personal machine path — or if this isn't the repo root
+# we expect. Enable once per clone with:  git config core.hooksPath .githooks
+#
+# Git feeds this hook one line per ref on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+# We scan the COMMITS in that range (git show per commit), not the working
+# tree — a working-tree scan misses secrets that were committed then deleted.
+set -euo pipefail
+
+fail() { echo "pre-push guard: BLOCKED — $*" >&2; exit 1; }
+
+# 1. Repo-root check: never push from the home directory or an ancestor.
+top="$(git rev-parse --show-toplevel)"
+[[ "$top" == "$HOME" || "$HOME" == "$top"/* ]] && fail "repo root is $top (home dir or above)"
+
+# Secret patterns (extended regex). Each line is one pattern.
+secret_patterns=(
+  'gh[opsu]_[A-Za-z0-9]{20,}'                 # GitHub tokens
+  'github_pat_[A-Za-z0-9_]{20,}'
+  'sk-ant-[A-Za-z0-9_-]{20,}'                 # Anthropic
+  'sk-[A-Za-z0-9_-]{20,}'                     # OpenAI-style
+  '(AKIA|ASIA)[0-9A-Z]{16}'                   # AWS access key ids
+  'xox[baprs]-[A-Za-z0-9-]{10,}'              # Slack
+  'AIza[0-9A-Za-z_-]{35}'                     # Google API keys
+  '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+  'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}'   # JWTs
+  # KEY=value style assignments with a real-looking value (8+ chars, not a placeholder)
+  '(API_?KEY|SECRET|TOKEN|PASSWORD|PASSWD)[A-Z_]*[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9/+_.-]{8,}'
+  '/Users/[A-Za-z0-9._-]+/'                   # personal machine paths
+)
+# Values that are obviously placeholders don't count.
+placeholder='(your[_-]|example|placeholder|changeme|xxxx|<[A-Za-z_]+>|\$\{?[A-Z_]+\}?|process\.env|os\.environ|import\.meta\.env)'
+
+# Files that must never be pushed, whatever they contain.
+banned_files='(^|/)(\.env(\..+)?|[^/]+\.(pem|key|p12|keystore|jks)|service-account[^/]*\.json|credentials[^/]*\.json)$'
+allowed_files='(^|/)\.env\.example$'
+
+zero='0000000000000000000000000000000000000000'
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ "$local_sha" == "$zero" ]] && continue            # branch deletion: nothing to scan
+  if [[ "$remote_sha" == "$zero" ]]; then
+    range=$(git rev-list "$local_sha" --not --remotes)   # new branch: commits not on any remote
+  else
+    range=$(git rev-list "$remote_sha..$local_sha")
+  fi
+
+  for c in $range; do
+    # Banned file names added or modified in this commit
+    while IFS= read -r f; do
+      [[ -z "$f" ]] && continue
+      if [[ "$f" =~ $banned_files && ! "$f" =~ $allowed_files ]]; then
+        fail "commit ${c:0:8} adds banned file: $f"
+      fi
+    done < <(git diff-tree --no-commit-id --name-only --diff-filter=AM -r "$c")
+
+    # Added lines (the '+' side of the diff) plus the commit message
+    added=$( { git log -1 --format=%B "$c"; git show --format= --unified=0 "$c" | grep -E '^\+' | grep -vE '^\+\+\+ ' || true; } )
+    for p in "${secret_patterns[@]}"; do
+      hits=$(printf '%s\n' "$added" | grep -E -e "$p" | grep -viE "$placeholder" || true)
+      [[ -n "$hits" ]] && fail "commit ${c:0:8} matches secret/PII pattern: $p
+$(printf '%s\n' "$hits" | head -3 | cut -c1-120)"
+    done
+  done
+done
+
+exit 0

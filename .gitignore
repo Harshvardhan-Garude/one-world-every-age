@@ -1,0 +1,47 @@
+# Secrets — never commit. Put real keys in .env (ignored); share the variable
+# NAMES (not values) in .env.example so teammates know what to set.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.keystore
+*.jks
+service-account*.json
+credentials*.json
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Node / web
+node_modules/
+dist/
+build/
+.next/
+.vite/
+coverage/
+npm-debug.log*
+yarn-error.log*
+.vercel/
+.firebase/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Android
+.gradle/
+local.properties
+captures/
+*.apk
+*.aab
+
+# Logs
+*.log
