@@ -142,3 +142,8 @@ The automated offline click-path rehearsal completed in **1.5 seconds** excludin
 The final fetch found team main `b20ed1ad404e1a91dce50c37bd063c819aff9da8`, the squash merge of [PR #8](https://github.com/jbisaccia-9/one-world-every-age/pull/8). Its source tree matched the recorded `f030b7c` baseline except for the already-preserved vendor ignore rule. The teammate fork merge `bca596637e56ee4542f40405981b0f54bf3fb2e2` was preserved. This increment `0fe858a` adds the two-scene changes; merge `a304b3b` records the actual team snapshot. Fifteen squash-history conflicts were resolved only after each team file was proven identical to the baseline, retaining the tested increment. No independent teammate source change was discarded. Fork main remained `97675eceedd2c3f722751fd5e81fb5f34106055a`. No further moving-main merge is being chased.
 
 The earlier integration is already merged upstream. This new increment requires its own teammate approval and green `guard` before squash merge; agent checks are not teammate approval. The feature branch is the review target, never a direct main push.
+
+
+### Follow-up review handoff
+
+The checked increment was pushed to `Harshvardhan-Garude/one-world-every-age:feat/ozone-demo`; the local secret guard passed. The GitHub connector rejected creation of the follow-up upstream pull request with **403: Resource not accessible by integration**. No new PR or merge is claimed. Open [the prepared comparison](https://github.com/jbisaccia-9/one-world-every-age/compare/main...Harshvardhan-Garude:feat/ozone-demo?expand=1), create the follow-up PR, then obtain the required teammate approval and green `guard` before squash merging. The earlier PR #8 and its upstream merge are already verified; this new increment is separate.
