@@ -110,6 +110,32 @@ export const refreshRequestSchema = z.object({ contextVersion: z.number().int().
 export const ownedAssessmentRequestSchema = z.object({
   contextVersion: z.number().int().positive(), fixtureId: z.enum(['P01', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']),
 }).strict();
+// Additive W06/W07/local-practice handoff. Mode, ownership and explanation text
+// are resolved by the server; clients submit references, never provider authority.
+export const coachingRequestSchema = z.object({ assessmentId: idSchema, contextVersion: z.number().int().positive() }).strict();
+export const coachingResponseSchema = z.object({
+  explanationId: idSchema, contextVersion: z.number().int().positive(),
+  mode: z.enum(['local-demo', 'provider-test']), source: z.enum(['scripted-fixture', 'Gemini']),
+  notice: textSchema, reply: explanationReplySchema,
+}).strict().refine(value => (value.mode === 'local-demo') === (value.source === 'scripted-fixture'), 'Explanation provenance must match execution mode');
+export const speechRequestSchema = coachingRequestSchema.extend({ explanationId: idSchema }).strict();
+export const speechResponseSchema = z.object({
+  assessmentId: idSchema, explanationId: idSchema, contextVersion: z.number().int().positive(),
+  mode: z.literal('provider-test'), source: z.literal('Inworld'), notice: textSchema,
+  captions: textSchema, mimeType: z.literal('audio/mpeg'), audioBase64: z.string().min(4).max(1_398_104),
+}).strict();
+export const quizRequestSchema = coachingRequestSchema;
+export const quizResponseSchema = z.object({
+  assessmentId: idSchema, contextVersion: z.number().int().positive(), mode: z.literal('local-demo'),
+  source: z.literal('curated-fixture'), notice: textSchema, challenge: publicChallengeSchema,
+}).strict();
+export const quizAnswerRequestSchema = coachingRequestSchema.extend({ version: z.number().int().positive(), choiceId: idSchema }).strict();
+export const quizFeedbackSchema = z.object({
+  assessmentId: idSchema, contextVersion: z.number().int().positive(), challengeId: idSchema, version: z.number().int().positive(),
+  mode: z.literal('local-demo'), source: z.literal('server-checked-fixture'), correct: z.boolean(),
+  feedback: textSchema, notice: textSchema, masteryCreditAwarded: z.literal(false),
+}).strict();
+export const providerListSchema = z.object({ providers: z.array(providerStatusSchema) }).strict();
 export const sessionViewSchema = z.object({
   ownerId: idSchema, mode: z.enum(['local-demo', 'provider-test']), contextVersion: z.number().int().positive(),
   syntheticProfile: personaSchema, jurisdiction: onboardingRequestSchema.shape.jurisdiction, optIns: optInsSchema,

@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { demoRequestSchema, contextUpdateSchema, onboardingRequestSchema, ownedAssessmentRequestSchema, refreshRequestSchema, structuredErrorSchema } from '@beacon/contracts';
+import { demoRequestSchema, coachingRequestSchema, contextUpdateSchema, onboardingRequestSchema, ownedAssessmentRequestSchema, quizAnswerRequestSchema, quizRequestSchema, refreshRequestSchema, speechRequestSchema, structuredErrorSchema } from '@beacon/contracts';
 import { z } from 'zod';
 import { BackendService } from './backend.js';
 import { BackendError } from './errors.js';
@@ -26,6 +26,12 @@ export function createApp(options: ServerOptions = {}) {
   const error = (res: ServerResponse, status: number, code: z.infer<typeof structuredErrorSchema>['code'], message: string, retryable = false) => json(res, status, structuredErrorSchema.parse({ code, message, retryable, requestId: String(res.getHeader('X-Request-ID') ?? randomUUID()) }));
   const app = createServer(async (req, res) => {
     const requestId = randomUUID(); const started = performance.now(); let stage = 'request';
+    const disconnected = new AbortController();
+    const cancel = () => disconnected.abort();
+    req.once('aborted', cancel);
+    const cancelUndelivered = () => { if (!res.writableEnded) cancel(); };
+    res.once('close', cancelUndelivered);
+    res.once('finish', () => { req.removeListener('aborted', cancel); res.removeListener('close', cancelUndelivered); });
     res.setHeader('X-Request-ID', requestId);
     res.once('finish', () => options.audit?.({ requestId, stage, statusCode: res.statusCode, durationMs: Math.round(performance.now() - started) }));
     try {
@@ -55,19 +61,29 @@ export function createApp(options: ServerOptions = {}) {
         const body = onboardingRequestSchema.parse(await readJson(req));
         json(res, 201, await backend.start(body)); return;
       }
-      const privateRoutes = ['/api/onboarding/context', '/api/onboarding/refresh', '/api/onboarding/logout', '/api/capabilities', '/api/assessments'];
-      if (privateRoutes.includes(url.pathname)) {
-        stage = url.pathname === '/api/assessments' ? 'owned-assessment' : 'session';
+      const quizAttempt = /^\/api\/challenges\/(address-and-request|context-before-keywords)\/attempts$/.exec(url.pathname);
+      const privateRoutes = ['/api/onboarding/context', '/api/onboarding/refresh', '/api/onboarding/logout', '/api/capabilities', '/api/assessments', '/api/coaching/messages', '/api/voice/speech', '/api/providers', '/api/challenges'];
+      if (privateRoutes.includes(url.pathname) || quizAttempt) {
+        stage = url.pathname === '/api/coaching/messages' ? 'coaching' : url.pathname === '/api/voice/speech' ? 'speech' : quizAttempt || url.pathname === '/api/challenges' ? 'practice' : url.pathname === '/api/assessments' ? 'owned-assessment' : 'session';
         const credential = bearer(req);
         // Authenticate before accepting a private body, even without an Origin header.
         backend.capabilities(credential);
         if (req.method === 'GET' && url.pathname === '/api/capabilities') { json(res, 200, backend.capabilities(credential)); return; }
+        if (req.method === 'GET' && url.pathname === '/api/providers') { json(res, 200, backend.providers(credential)); return; }
+        if (req.method === 'GET' && url.pathname === '/api/challenges') {
+          const query = Object.fromEntries(url.searchParams);
+          const request = quizRequestSchema.parse({ ...query, contextVersion: Number(query.contextVersion) });
+          json(res, 200, backend.quiz(credential, request)); return;
+        }
         if (req.method === 'POST') {
           const body = await readJson(req);
           if (url.pathname === '/api/onboarding/context') { json(res, 200, await backend.updateContext(credential, contextUpdateSchema.parse(body))); return; }
           if (url.pathname === '/api/onboarding/refresh') { const request = refreshRequestSchema.parse(body); json(res, 200, await backend.refresh(credential, request.contextVersion)); return; }
           if (url.pathname === '/api/onboarding/logout') { z.object({}).strict().parse(body); json(res, 200, backend.logout(credential)); return; }
           if (url.pathname === '/api/assessments') { json(res, 201, backend.createAssessment(credential, ownedAssessmentRequestSchema.parse(body))); return; }
+          if (url.pathname === '/api/coaching/messages') { json(res, 200, await backend.explain(credential, coachingRequestSchema.parse(body), disconnected.signal)); return; }
+          if (url.pathname === '/api/voice/speech') { json(res, 200, await backend.speak(credential, speechRequestSchema.parse(body), disconnected.signal)); return; }
+          if (quizAttempt) { json(res, 200, backend.answerQuiz(credential, quizAttempt[1], quizAnswerRequestSchema.parse(body))); return; }
         }
       }
       if (req.method === 'GET' && /^\/fixtures\/(P01|P16)$/.test(url.pathname)) {
@@ -79,9 +95,9 @@ export function createApp(options: ServerOptions = {}) {
           'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
           'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
         });
-        res.end(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(fixture.id)} synthetic fixture</title><style>body{font:18px/1.6 system-ui;max-width:48rem;margin:3rem auto;padding:1rem;background:#f4f5ed;color:#182d28}article{background:white;padding:2rem;border:1px solid #cad6cf;border-radius:20px}code{overflow-wrap:anywhere}a{color:#075747}button{padding:.8rem}</style><body><p>BEACON · LOCAL DEMO · ${escapeHtml(fixture.id)}</p><article><h1>${escapeHtml(fixture.title)}</h1><p>${escapeHtml(fixture.text)}</p><p><strong>Illustrative address metadata (not the actual tab URL):</strong><br><code>${escapeHtml(fixture.illustrativeUrl)}</code></p><p>The actual URL is this local page's address in your browser. No domain mapping is configured.</p><button disabled>No credentials collected — fixture only</button><p>Automatic detection is not implemented. The extension can demonstrate manual page access only.</p><a href="${companionOrigin}">Open the Beacon companion</a></article></body></html>`); return;
+        res.end(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ozone Layer · ${escapeHtml(fixture.id)} synthetic fixture</title><style>body{font:18px/1.6 system-ui;max-width:48rem;margin:3rem auto;padding:1rem;background:#f4f5ed;color:#182d28}article{background:white;padding:2rem;border:1px solid #cad6cf;border-radius:20px}code{overflow-wrap:anywhere}a{color:#075747}button{padding:.8rem}</style><body><p>Ozone Layer · LOCAL DEMO · ${escapeHtml(fixture.id)}</p><article><h1>${escapeHtml(fixture.title)}</h1><p>${escapeHtml(fixture.text)}</p><p><strong>Illustrative address metadata (not the actual tab URL):</strong><br><code>${escapeHtml(fixture.illustrativeUrl)}</code></p><p>The actual URL is this local page's address in your browser. No domain mapping is configured.</p><button disabled>No credentials collected — fixture only</button><p>Automatic detection is not implemented. The extension can demonstrate manual page access only.</p><a href="${companionOrigin}">Open the Ozone Layer companion</a></article></body></html>`); return;
       }
-      error(res, 404, 'NOT_FOUND', 'This route is not available in the local Beacon backend.');
+      error(res, 404, 'NOT_FOUND', 'This route is not available in the local Ozone Layer backend.');
     } catch (cause) {
       if (!res.headersSent && cause instanceof BackendError) { error(res, cause.status, cause.code, cause.message, cause.retryable); return; }
       if (!res.headersSent && cause instanceof z.ZodError) { error(res, 400, 'INVALID_REQUEST', 'Request does not match the supported schema. Extra authority fields are forbidden.'); return; }

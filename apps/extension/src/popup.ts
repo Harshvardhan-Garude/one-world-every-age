@@ -12,6 +12,6 @@ document.querySelector<HTMLButtonElement>('#manual')!.onclick = async () => {
     if (!tab?.id || !tab.url || !/^https?:\/\//.test(tab.url)) { status.textContent = 'Page access unavailable here. Open a regular HTTP(S) page and invoke the toolbar popup.'; return; }
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
     status.textContent = `Temporary page access confirmed: ${new URL(tab.url).hostname}. No content analysis ran. See the local page notice.`;
-  } catch { status.textContent = 'Temporary access was not granted. Invoke Beacon from the toolbar on an accessible HTTP(S) page and retry.'; }
+  } catch { status.textContent = 'Temporary access was not granted. Invoke Ozone Layer from the toolbar on an accessible HTTP(S) page and retry.'; }
 };
 document.querySelector<HTMLButtonElement>('#open')!.onclick = () => { void chrome.tabs.create({ url: __COMPANION_ORIGIN__ }); };

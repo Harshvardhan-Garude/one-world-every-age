@@ -1,4 +1,4 @@
-# Beacon — One world, every age
+# Ozone Layer — One world, every age
 
 A browser safety companion for learning to notice online risks, understand evidence, and choose a safer next step. Children, teenagers, adults and older adults belong in the experience from the start.
 
@@ -30,7 +30,7 @@ npm run dev:extension
 
 1. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select **`apps/extension/dist`** in this checkout.
 2. Keep `npm run dev` running and open a controlled local fixture in Chrome.
-3. Invoke Beacon from its toolbar icon. Choose **Show current-page access**. On an accessible HTTP(S) tab, a dismissible notice confirms temporary access and says no content analysis ran.
+3. Invoke Ozone Layer from its toolbar icon. Choose **Show current-page access**. On an accessible HTTP(S) tab, a dismissible notice confirms temporary access and says no content analysis ran.
 4. **Open companion demo** opens the configured companion. Restricted browser/extension pages must show unavailable access.
 5. After rebuilding, reload the extension in Chrome. See the [foundation runbook](docs/FOUNDATION.md) for the complete manual checklist and automated coverage.
 
@@ -72,19 +72,19 @@ Illustrative `*.example` addresses are labeled metadata; actual fixture URLs are
 
 ## Authenticated backend
 
-Public demo routes are preserved. `POST /api/onboarding/session` creates a bounded, short-lived Beacon session; private capabilities, context, refresh, logout and fixture-assessment routes require its bearer credential. Production mode is rejected. Missing k-ID configuration leaves provider-test onboarding unavailable and protected operations disabled. See [the backend API examples](docs/BACKEND.md) for exact requests and the Role C authorization wrapper. No UI onboarding rewrite is included.
+Public demo routes are preserved. `POST /api/onboarding/session` creates a bounded, short-lived Ozone Layer session; private capabilities, context, refresh, logout and fixture-assessment routes require its bearer credential. Authenticated local-demo P01/P16 assessments now support scripted explanation → short quiz → server-checked teaching feedback, without mastery credit or vendor calls. Gemini/Inworld provider-test routes use the W02 authorization boundary and return explicit **not configured** errors when settings are missing. Production mode is rejected. See [the backend API examples and frontend contract handoff](docs/BACKEND.md) for a complete runnable offline request sequence, runtime provider status, exact configuration and live-verification gaps. The companion still uses its public preview; UI wiring remains separate.
 
 ## Provider and privacy status
 
 | Provider | Assigned responsibility | Current state |
 | --- | --- | --- |
 | k-ID | W02 Test Mode sessions and permission refresh | CDK adapter implemented but unverified; runtime **not configured** without credentials/workflow |
-| Gemini | Evidence-based reasoning in W06 | **Not configured**; interface only |
-| Inworld | Validated speech output in W07 | **Not configured**; interface only |
+| Gemini | Evidence-based reasoning in W06 | Standalone live connectivity verified with `gemini-3.5-flash-lite`; protected application route still unverified pending genuine k-ID authorization; **not configured** without key/model |
+| Inworld | Validated speech output in W07 | Non-streaming MP3 adapter and protected route implemented; simulated HTTP tests only; **not configured** without key/model/voice |
 | Modulate | Speech transcription/redaction in W08 | **Not configured**; interface only |
 | FastSpring | Possible later relevant sandbox flow | **Deferred** |
 
-No live provider calls, mock production approvals or real-person recordings were made. Pre-authored explanations are labeled fixtures, not live AI. SDK/auth/model/retention configuration must be confirmed by the owning task; environment placeholders do not establish access.
+Automated provider tests use injected simulated HTTP responses. A separate live Gemini diagnostic with fixed fictional text verified authentication/model access and structured response parsing; see [the exact results and remaining application blockers](docs/BACKEND.md#live-gemini-connectivity-diagnostic--2026-10-21). No k-ID approval was fabricated and no real-person recording was made. Pre-authored explanations remain labeled fixtures, not live AI. Product permissions and retention configuration still require verification; environment placeholders do not establish access.
 
 The future chain is Modulate redaction → Gemini reasoning → Inworld speech. Browser grants, backend eligibility, cloud consent and explicit Talk intent remain separate. Before W08 collects any real recording, the team must reconcile CONTRIBUTING's voice-data prohibition with the spec's presenter-microphone proposal. This foundation collects no audio.
 

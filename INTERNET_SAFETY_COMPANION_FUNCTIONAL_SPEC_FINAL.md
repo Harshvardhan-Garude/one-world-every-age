@@ -1,6 +1,6 @@
 # Internet Safety Companion — functional specification
 
-Version: 1.1 · October 21, 2026 · Working product name: Beacon
+Version: 1.1 · October 21, 2026 · Working product name: Ozone Layer
 
 Status: final implementation brief, including voice coaching. This revision preserves the original all-ages audience, scenario catalog, intervention boundaries, and learning-credit rules. It adds the voice experience, assigns provider responsibilities, and defines a focused hackathon demonstration. Requirements describe what to build; they do not assert that an integration has already been implemented or tested.
 

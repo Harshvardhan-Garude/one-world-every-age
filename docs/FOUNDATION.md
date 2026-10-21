@@ -78,7 +78,7 @@ Playwright 1.55.1 and its Chromium 140 test build support the available Ubuntu 2
 
 Use the unmodified `apps/extension/dist` from `npm run build`, with the development companion/API running.
 
-1. Load unpacked in Chrome Developer mode and pin Beacon. Confirm no all-site or microphone access is required at installation.
+1. Load unpacked in Chrome Developer mode and pin Ozone Layer. Confirm no all-site or microphone access is required at installation.
 2. Visit `http://127.0.0.1:8787/fixtures/P01`, invoke the **toolbar icon**, and choose **Show current-page access**. Confirm a dismissible notice with actual hostname `127.0.0.1`, explicitly stating no analysis/recording ran.
 3. Dismiss and invoke again; there must be one notice rather than duplicate cards. The shell collects no text fields and sends no network request.
 4. Repeat on P16 and an ordinary accessible HTTP(S) page. Expect an access confirmation only, without a threat verdict.

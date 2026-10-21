@@ -1,10 +1,13 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { assessmentSchema, contextUpdateSchema, onboardingRequestSchema, ownedAssessmentRequestSchema, permitsProtectedOperation, sessionViewSchema, type Assessment, type CapabilitySnapshot } from '@beacon/contracts';
+import { assessmentSchema, coachingRequestSchema, coachingResponseSchema, contextUpdateSchema, onboardingRequestSchema, ownedAssessmentRequestSchema, parseExplanationForAssessment, permitsProtectedOperation, providerListSchema, quizAnswerRequestSchema, quizFeedbackSchema, quizRequestSchema, quizResponseSchema, sessionViewSchema, speechRequestSchema, speechResponseSchema, type Assessment, type CapabilitySnapshot } from '@beacon/contracts';
 import { renderDemo } from '@beacon/fixtures';
+import { fixtureLesson } from '@beacon/fixtures/server';
 import { BackendError, abortable, unavailable } from './errors.js';
 import { mapCapabilities, permissionAdapterFromEnvironment, type KidLink, type KidResult, type PermissionAdapter } from './kid.js';
-import type { ProviderContext } from './providers.js';
+import type { ProviderContext, ReasoningProvider, SpeechProvider } from './providers.js';
+import { reasoningAdapterFromEnvironment } from './gemini.js';
+import { speechAdapterFromEnvironment } from './inworld.js';
 
 type Start = z.infer<typeof onboardingRequestSchema>;
 type State = 'local-demo' | 'active' | 'pending' | 'prohibited' | 'unavailable';
@@ -12,7 +15,7 @@ type StoredSession = {
   hash: string; ownerId: string; mode: Start['mode']; profile: Start['syntheticProfile']; jurisdiction: string; optIns: Start['optIns'];
   expiresAt: number; contextVersion: number; state: State; snapshot: CapabilitySnapshot;
   link?: KidLink; providerRevision?: string; busy: boolean; mutation?: AbortController; work: Set<AbortController>;
-  assessments: Map<string, { data: Assessment; expiresAt: number }>;
+  assessments: Map<string, { data: Assessment; expiresAt: number; fixtureId: 'P01' | 'P16'; explanation?: z.infer<typeof coachingResponseSchema>; quizIssued?: boolean }>;
 };
 export type Operation = 'coaching' | 'speech' | 'voice' | 'uploads' | 'memory';
 const requirements = {
@@ -21,6 +24,7 @@ const requirements = {
   uploads: ['cloud_content_analysis', 'uploads'], memory: ['cloud_content_analysis', 'ai_coaching', 'conversation_memory'],
 } as const;
 const hashCredential = (credential: string) => createHash('sha256').update(credential).digest('hex');
+const demoNotice = 'LOCAL DEMO: pre-authored synthetic fixture, scripted explanation and curated practice. No real k-ID verification, Gemini reasoning or generated vendor speech. No mastery credit.';
 
 export class BackendService {
   #sessions = new Map<string, StoredSession>();
@@ -28,9 +32,14 @@ export class BackendService {
   #now: () => number;
   #lifetime: number;
   #limit: number;
-  constructor(options: { adapter?: PermissionAdapter; now?: () => number; lifetimeMs?: number; maxSessions?: number; allowTestAdapter?: boolean } = {}) {
+  #reasoning: ReasoningProvider;
+  #speech: SpeechProvider;
+  constructor(options: { adapter?: PermissionAdapter; reasoning?: ReasoningProvider; speech?: SpeechProvider; now?: () => number; lifetimeMs?: number; maxSessions?: number; allowTestAdapter?: boolean } = {}) {
     this.#adapter = options.adapter ?? permissionAdapterFromEnvironment(process.env);
-    if (this.#adapter.transport === 'test-fake' && !options.allowTestAdapter) throw new Error('Injected permission fakes are restricted to explicit automated-test services');
+    this.#reasoning = options.reasoning ?? reasoningAdapterFromEnvironment(process.env);
+    this.#speech = options.speech ?? speechAdapterFromEnvironment(process.env);
+    if ([this.#adapter, this.#reasoning, this.#speech].some(adapter => adapter.transport === 'test-fake') && !options.allowTestAdapter) throw new Error('Injected provider fakes are restricted to explicit automated-test services');
+    if (this.#adapter.transport === 'test-fake' && [this.#reasoning, this.#speech].some(adapter => adapter.transport === 'vendor-test')) throw new Error('Simulated permissions cannot be combined with real provider transports');
     this.#now = options.now ?? Date.now;
     this.#lifetime = options.lifetimeMs ?? 30 * 60_000;
     this.#limit = options.maxSessions ?? 1000;
@@ -151,13 +160,105 @@ export class BackendService {
     const fixture = renderDemo({ mode: 'local-demo', persona: session.profile, fixtureId: request.fixtureId, variant: request.variant });
     const data = assessmentSchema.parse({ ...fixture.assessment, id: randomUUID(), ownerId: session.ownerId, mode: session.mode, contextVersion: session.contextVersion, createdAt: new Date(this.#now()).toISOString() });
     const expiresAt = Math.min(this.#now() + 5 * 60_000, session.expiresAt);
-    session.assessments.set(data.id, { data, expiresAt });
+    session.assessments.set(data.id, { data, expiresAt, fixtureId: request.fixtureId });
     return { assessment: structuredClone(data), referenceExpiresAt: new Date(expiresAt).toISOString(), fixture: fixture.fixture, challenge: fixture.challenge };
   }
   #owned(session: StoredSession, assessmentId: string): Assessment {
     const entry = session.assessments.get(assessmentId);
     if (!entry || entry.expiresAt <= this.#now()) { session.assessments.delete(assessmentId); throw new BackendError(404, 'NOT_FOUND', 'Owned assessment reference is unavailable.'); }
     this.#version(session, entry.data.contextVersion); return entry.data;
+  }
+  providers(credential: string) {
+    const session = this.#get(credential);
+    const kid = this.#adapter.status();
+    return providerListSchema.parse({ providers: [
+      { provider: 'k-ID', status: kid.status, mode: session.mode, detail: kid.detail },
+      this.#reasoning.status(), this.#speech.status(),
+    ] });
+  }
+  async explain(credential: string, input: unknown, signal?: AbortSignal) {
+    const request = coachingRequestSchema.parse(input);
+    const session = this.#get(credential); this.#version(session, request.contextVersion);
+    const assessment = this.#owned(session, request.assessmentId);
+    signal?.throwIfAborted();
+    let reply: z.infer<typeof coachingResponseSchema>['reply'];
+    if (session.mode === 'local-demo') {
+      reply = parseExplanationForAssessment({
+        assessmentId: assessment.id, explanation: assessment.explanation, spokenText: assessment.explanation,
+        evidenceIds: assessment.evidenceIds, uncertainty: assessment.uncertainty, suggestedNextStep: assessment.safeActions[0],
+      }, assessment);
+    } else {
+      if (this.#reasoning.transport === 'unavailable') throw new BackendError(503, 'UNAVAILABLE', this.#reasoning.status().detail);
+      reply = await this.withAuthorizedOperation(credential, assessment.id, 'coaching', request.contextVersion, async context => {
+        // Existing fixtures are synthetic. No arbitrary page/transcript proxy or raw audio input.
+        const explanation = parseExplanationForAssessment(await this.#reasoning.explain('Explain the owned synthetic fixture using its evidence and uncertainty.', context), context.assessment);
+        if (explanation.spokenText !== explanation.explanation || new Set(explanation.evidenceIds).size !== explanation.evidenceIds.length) throw new BackendError(503, 'UNAVAILABLE', 'The explanation did not preserve caption or evidence constraints.');
+        await context.assertCurrent();
+        return explanation;
+      }, signal);
+    }
+    this.#version(session, request.contextVersion); this.#owned(session, assessment.id); signal?.throwIfAborted();
+    const response = coachingResponseSchema.parse({
+      explanationId: randomUUID(), contextVersion: request.contextVersion, mode: session.mode,
+      source: session.mode === 'local-demo' ? 'scripted-fixture' : 'Gemini',
+      notice: session.mode === 'local-demo' ? demoNotice : this.#reasoning.transport === 'test-fake' ? 'Automated test only: simulated Gemini HTTP response; no real Gemini reasoning or connection. Assessment evidence is synthetic.' : 'Gemini response about a synthetic fixture. This is not a live page scan or a verified safety decision.', reply,
+    });
+    session.assessments.get(assessment.id)!.explanation = response;
+    return structuredClone(response);
+  }
+  #practice(credential: string, input: unknown) {
+    const request = quizRequestSchema.parse(input);
+    const session = this.#get(credential); this.#version(session, request.contextVersion); this.#owned(session, request.assessmentId);
+    if (session.mode !== 'local-demo') throw new BackendError(403, 'FORBIDDEN', 'Curated fixture practice requires a separate local-demo session; it is not a provider execution fallback.');
+    const entry = session.assessments.get(request.assessmentId)!;
+    if (!entry.explanation || entry.explanation.source !== 'scripted-fixture') throw new BackendError(409, 'CONFLICT', 'Request the scripted explanation before starting local-demo practice.');
+    return { request, entry, lesson: fixtureLesson(entry.fixtureId) };
+  }
+  quiz(credential: string, input: unknown) {
+    const { request, entry, lesson } = this.#practice(credential, input);
+    entry.quizIssued = true;
+    return quizResponseSchema.parse({ ...request, mode: 'local-demo', source: 'curated-fixture', notice: demoNotice, challenge: lesson.challenge });
+  }
+  answerQuiz(credential: string, challengeId: string, input: unknown) {
+    const answer = quizAnswerRequestSchema.parse(input);
+    const { entry, lesson } = this.#practice(credential, { assessmentId: answer.assessmentId, contextVersion: answer.contextVersion });
+    if (lesson.challenge.id !== challengeId) throw new BackendError(404, 'NOT_FOUND', 'Owned fixture challenge is unavailable.');
+    if (!entry.quizIssued || answer.version !== lesson.challenge.version) throw new BackendError(409, 'CONFLICT', 'Load the current owned quiz before submitting an answer.');
+    if (!lesson.challenge.choices.some(choice => choice.id === answer.choiceId)) throw new BackendError(400, 'INVALID_REQUEST', 'Choose one of the current quiz options.');
+    const correct = answer.choiceId === lesson.correctChoiceId;
+    return quizFeedbackSchema.parse({
+      assessmentId: answer.assessmentId, contextVersion: answer.contextVersion, challengeId, version: answer.version,
+      mode: 'local-demo', source: 'server-checked-fixture', correct, masteryCreditAwarded: false, notice: demoNotice,
+      feedback: `${correct ? 'That observation fits the lesson.' : 'Take another look at the evidence.'} ${lesson.teaching}`,
+    });
+  }
+  async speak(credential: string, input: unknown, signal?: AbortSignal) {
+    const request = speechRequestSchema.parse(input);
+    const session = this.#get(credential); this.#version(session, request.contextVersion); this.#owned(session, request.assessmentId);
+    if (session.mode !== 'provider-test') throw new BackendError(403, 'FORBIDDEN', 'Local-demo fixtures never generate vendor speech. Use the scripted explanation as text.');
+    if (this.#speech.transport === 'unavailable') throw new BackendError(503, 'UNAVAILABLE', this.#speech.status().detail);
+    const saved = session.assessments.get(request.assessmentId)!.explanation;
+    if (!saved || saved.explanationId !== request.explanationId || saved.source !== 'Gemini') throw new BackendError(404, 'NOT_FOUND', 'Owned validated explanation is unavailable. Request an explanation first.');
+    const response = await this.withAuthorizedOperation(credential, request.assessmentId, 'speech', request.contextVersion, async context => {
+      const assertExplanation = () => {
+        if (session.assessments.get(request.assessmentId)?.explanation !== saved) throw new BackendError(409, 'CONFLICT', 'The explanation changed. Request speech for the current explanation.');
+      };
+      assertExplanation();
+      const reply = parseExplanationForAssessment(saved.reply, context.assessment);
+      await context.assertCurrent();
+      const audio = await this.#speech.speak(reply.spokenText, context);
+      await context.assertCurrent(); assertExplanation();
+      return speechResponseSchema.parse({
+        ...request, mode: 'provider-test', source: 'Inworld',
+        notice: this.#speech.transport === 'test-fake' ? 'Automated test only: simulated Inworld audio response; no generated vendor speech or real connection.' : 'Inworld speech for the owned validated explanation about synthetic fixture evidence.',
+        captions: reply.spokenText, mimeType: audio.mimeType, audioBase64: Buffer.from(audio.audio).toString('base64'),
+      });
+    }, signal);
+    // A replacement can also arrive while the wrapper performs its final
+    // permission refresh. Check the exact saved explanation after that await.
+    this.#version(session, request.contextVersion); this.#owned(session, request.assessmentId); signal?.throwIfAborted();
+    if (session.assessments.get(request.assessmentId)?.explanation !== saved) throw new BackendError(409, 'CONFLICT', 'The explanation changed. Request speech for the current explanation.');
+    return response;
   }
   #eligible(session: StoredSession, operation: Operation, version: number) {
     this.#version(session, version);
