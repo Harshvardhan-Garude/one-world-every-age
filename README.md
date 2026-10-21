@@ -2,7 +2,7 @@
 
 A browser safety companion for learning to notice online risks, understand evidence, and choose a safer next step. Children, teenagers, adults and older adults belong in the experience from the start.
 
-**W00/W01 foundation, ready for review.** This branch provides a runnable companion, public demo API, loadable Chrome MV3 shell, shared runtime schemas and P01/P16 fixtures. Automatic detection, production sessions, live providers, voice, grading and awards remain subsequent work. All demo capabilities are unknown; no demo selection authorizes production use.
+**W00/W01 foundation merged in PR #4; W02 backend code in review.** This branch provides a runnable companion, public demo API, loadable Chrome MV3 shell, shared runtime schemas and P01/P16 fixtures. W02 adds authenticated local sessions and owned fixture references; production mode, automatic detection, live-verified providers, voice, grading and awards remain unavailable. All demo capabilities are unknown; no demo selection authorizes production use.
 
 ## Run locally
 
@@ -70,11 +70,15 @@ Question/choice previews do not grade or award credit. Rubric schemas and answer
 
 Illustrative `*.example` addresses are labeled metadata; actual fixture URLs are local. No sample domain mapping is configured. No supported indicators never means verified safe.
 
+## Authenticated backend
+
+Public demo routes are preserved. `POST /api/onboarding/session` creates a bounded, short-lived Beacon session; private capabilities, context, refresh, logout and fixture-assessment routes require its bearer credential. Production mode is rejected. Missing k-ID configuration leaves provider-test onboarding unavailable and protected operations disabled. See [the backend API examples](docs/BACKEND.md) for exact requests and the Role C authorization wrapper. No UI onboarding rewrite is included.
+
 ## Provider and privacy status
 
 | Provider | Assigned responsibility | Current state |
 | --- | --- | --- |
-| k-ID | Permission session decisions in W02 | **Not configured**; interface only |
+| k-ID | W02 Test Mode sessions and permission refresh | CDK adapter implemented but unverified; runtime **not configured** without credentials/workflow |
 | Gemini | Evidence-based reasoning in W06 | **Not configured**; interface only |
 | Inworld | Validated speech output in W07 | **Not configured**; interface only |
 | Modulate | Speech transcription/redaction in W08 | **Not configured**; interface only |
@@ -91,9 +95,10 @@ The future chain is Modulate redaction → Gemini reasoning → Inworld speech. 
 | [Functional specification v1.1](INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md) | Unchanged full product contract |
 | [Work plan](docs/WORK_PLAN.md) | W02–W13 ownership, dependencies and acceptance mapping |
 | [Architecture](docs/ARCHITECTURE.md) | Component responsibilities and integration boundaries |
+| [Backend handoff](docs/BACKEND.md) | W02 routes, bearer credentials, capability mapping, test evidence and live blockers |
 | [Foundation runbook](docs/FOUNDATION.md) | Exact API/contracts, validation evidence and manual Chrome checklist |
 | [Contributing](CONTRIBUTING.md) | Hooks, approvals, squash merge and synthetic-data policy |
 
-W00/W01 are in review, not merged or team-approved. Role A can take W02 sessions/k-ID/backend; Role B can take W03/W04 detection and companion flows; Role C can review provider contracts before W06. Teammates claim roles explicitly. The capability helper does not replace W02's authenticated, server-owned authorization.
+W00/W01 merged in PR #4. W02 provides the backend boundary described in [BACKEND.md](docs/BACKEND.md); real k-ID verification remains blocked on access/configuration. Role A must confirm and validate the event product flow; Role B can take W03/W04 detection and companion flows; Role C can review provider contracts before W06. Teammates claim roles explicitly. Use W02's authenticated service wrapper for protected provider execution; a client-side capability check is not authorization.
 
 Use feature branches, enable `.githooks`, obtain one teammate approval and green `guard` CI, then squash merge under CONTRIBUTING. No deployment, extension publication or direct push to team `main` is included.

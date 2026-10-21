@@ -31,7 +31,7 @@ test('local API validates demo boundaries without accepting production authority
     assert.equal((await fetch(`${base}/api/demo`, { headers: { Origin: 'https://untrusted.example' } })).status, 403);
     const allowed = await fetch(`${base}/api/demo`, { headers: { Origin: 'http://127.0.0.1:5173' } });
     assert.equal(allowed.headers.get('Access-Control-Allow-Origin'), 'http://127.0.0.1:5173');
-    for (const route of ['/api/capabilities', '/api/voice/turns', '/api/challenges/test/attempts']) assert.equal((await fetch(`${base}${route}`, { method: 'POST' })).status, 404);
+    for (const route of ['/api/voice/turns', '/api/challenges/test/attempts']) assert.equal((await fetch(`${base}${route}`, { method: 'POST' })).status, 404);
   });
   await t.test('controlled fixtures are inert and illustrative domains are labeled', async () => {
     for (const fixture of ['P01', 'P16']) {

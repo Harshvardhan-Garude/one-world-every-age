@@ -73,7 +73,7 @@ export const providerStatusSchema = z.object({
   status: z.enum(['live verified', 'implemented but unverified', 'mock', 'not configured', 'deferred']),
   mode: modeSchema.nullable(), detail: textSchema,
 }).strict();
-export const structuredErrorSchema = z.object({ code: z.enum(['INVALID_REQUEST', 'NOT_FOUND', 'FORBIDDEN', 'TOO_LARGE', 'UNAVAILABLE', 'INTERNAL']), message: textSchema, retryable: z.boolean(), requestId: idSchema }).strict();
+export const structuredErrorSchema = z.object({ code: z.enum(['INVALID_REQUEST', 'NOT_FOUND', 'UNAUTHORIZED', 'FORBIDDEN', 'CONFLICT', 'LIMITED', 'TOO_LARGE', 'UNAVAILABLE', 'INTERNAL']), message: textSchema, retryable: z.boolean(), requestId: idSchema }).strict();
 export const publicChallengeSchema = z.object({
   id: idSchema, version: z.number().int().positive(), credit_key: idSchema,
   category: z.enum(['financial', 'privacy', 'claim', 'judgment']), question: textSchema,
@@ -98,6 +98,28 @@ export const voiceTurnSchema = z.object({
 export const demoRequestSchema = z.object({
   mode: z.literal('local-demo'), persona: personaSchema, fixtureId: z.enum(['P01', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']),
 }).strict();
+export const onboardingRequestSchema = z.object({
+  mode: z.enum(['local-demo', 'provider-test']), syntheticProfile: personaSchema,
+  jurisdiction: z.string().regex(/^[A-Z]{2}(-[A-Z0-9]{1,3})?$/), optIns: optInsSchema,
+}).strict();
+export const contextUpdateSchema = z.object({
+  contextVersion: z.number().int().positive(), optIns: optInsSchema.optional(),
+  jurisdiction: onboardingRequestSchema.shape.jurisdiction.optional(), syntheticProfile: personaSchema.optional(),
+}).strict().refine(value => value.optIns !== undefined || value.jurisdiction !== undefined || value.syntheticProfile !== undefined, 'Supply a context change');
+export const refreshRequestSchema = z.object({ contextVersion: z.number().int().positive() }).strict();
+export const ownedAssessmentRequestSchema = z.object({
+  contextVersion: z.number().int().positive(), fixtureId: z.enum(['P01', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']),
+}).strict();
+export const sessionViewSchema = z.object({
+  ownerId: idSchema, mode: z.enum(['local-demo', 'provider-test']), contextVersion: z.number().int().positive(),
+  syntheticProfile: personaSchema, jurisdiction: onboardingRequestSchema.shape.jurisdiction, optIns: optInsSchema,
+  applicationExpiresAt: timestamp, onboardingState: z.enum(['local-demo', 'active', 'pending', 'prohibited', 'unavailable']),
+  capabilities: capabilitySnapshotSchema, authorizationFreshness: z.literal('refresh-before-dispatch-and-delivery'),
+  provider: z.object({ provider: z.literal('k-ID'), status: providerStatusSchema.shape.status, environment: z.literal('k-ID Test Mode'), detail: textSchema, mappingConfirmed: z.boolean(), lastSuccessfulCallAt: timestamp.optional(), verifiedSessionAt: timestamp.optional() }).strict(),
+  challenge: z.object({ type: z.enum(['CHALLENGE_PARENTAL_CONSENT', 'CHALLENGE_AGE_GATE_AGE_ASSURANCE']), url: z.url().max(2048), environment: z.literal('k-ID Test Mode') }).strict().optional(),
+}).strict().superRefine((view, ctx) => {
+  if (view.capabilities.ownerId !== view.ownerId || view.capabilities.mode !== view.mode || view.capabilities.contextVersion !== view.contextVersion || (view.mode === 'local-demo' && view.onboardingState !== 'local-demo') || (view.mode !== 'local-demo' && view.onboardingState === 'local-demo') || (view.challenge && view.onboardingState !== 'pending')) ctx.addIssue({ code: 'custom', message: 'Session response must preserve server-owned context and mode' });
+});
 export const fixtureSchema = z.object({
   id: z.enum(['P01', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']), title: textSchema,
   illustrativeUrl: z.url().max(2048), text: textSchema,

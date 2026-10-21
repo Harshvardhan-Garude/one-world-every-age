@@ -1,16 +1,20 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { demoRequestSchema, structuredErrorSchema } from '@beacon/contracts';
+import { demoRequestSchema, contextUpdateSchema, onboardingRequestSchema, ownedAssessmentRequestSchema, refreshRequestSchema, structuredErrorSchema } from '@beacon/contracts';
+import { z } from 'zod';
+import { BackendService } from './backend.js';
+import { BackendError } from './errors.js';
 import { baselineFixtures, providerStatuses, renderDemo, scenarioCatalog } from '@beacon/fixtures';
 
 const maxBodyBytes = 4096;
-export interface ServerOptions { companionOrigin?: string; extensionOrigins?: string[] }
+export interface ServerOptions { companionOrigin?: string; extensionOrigins?: string[]; backend?: BackendService; audit?: (event: { requestId: string; stage: string; statusCode: number; durationMs: number }) => void }
 function localOrigin(input: string): string {
   const url = new URL(input);
   if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname) || url.origin !== input) throw new Error('Companion origin must be an exact loopback HTTP origin');
   return url.origin;
 }
 export function createApp(options: ServerOptions = {}) {
+  const backend = options.backend ?? new BackendService();
   const companionOrigin = localOrigin(options.companionOrigin ?? 'http://127.0.0.1:5173');
   const extensions = options.extensionOrigins ?? [];
   if (extensions.some(origin => !/^chrome-extension:\/\/[a-p]{32}$/.test(origin))) throw new Error('Invalid extension origin configuration');
@@ -19,8 +23,11 @@ export function createApp(options: ServerOptions = {}) {
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.end(JSON.stringify(body));
   };
-  const error = (res: ServerResponse, status: number, code: 'INVALID_REQUEST' | 'NOT_FOUND' | 'FORBIDDEN' | 'TOO_LARGE' | 'INTERNAL', message: string) => json(res, status, structuredErrorSchema.parse({ code, message, retryable: false, requestId: randomUUID() }));
-  return createServer(async (req, res) => {
+  const error = (res: ServerResponse, status: number, code: z.infer<typeof structuredErrorSchema>['code'], message: string, retryable = false) => json(res, status, structuredErrorSchema.parse({ code, message, retryable, requestId: String(res.getHeader('X-Request-ID') ?? randomUUID()) }));
+  const app = createServer(async (req, res) => {
+    const requestId = randomUUID(); const started = performance.now(); let stage = 'request';
+    res.setHeader('X-Request-ID', requestId);
+    res.once('finish', () => options.audit?.({ requestId, stage, statusCode: res.statusCode, durationMs: Math.round(performance.now() - started) }));
     try {
       const origin = req.headers.origin;
       if (origin && !allowedOrigins.has(origin)) { error(res, 403, 'FORBIDDEN', 'Origin is not configured for this local foundation'); return; }
@@ -29,7 +36,7 @@ export function createApp(options: ServerOptions = {}) {
         res.setHeader('Vary', 'Origin');
       }
       if (req.method === 'OPTIONS') {
-        res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' }); res.end(); return;
+        res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' }); res.end(); return;
       }
       const url = new URL(req.url ?? '/', 'http://127.0.0.1');
       if (req.method === 'GET' && url.pathname === '/health') { json(res, 200, { status: 'ok', mode: 'local-demo', stage: 'foundation', productionAuthorization: false }); return; }
@@ -37,19 +44,31 @@ export function createApp(options: ServerOptions = {}) {
         json(res, 200, { mode: 'local-demo', providers: providerStatuses, scenarios: scenarioCatalog, personas: ['child', 'teen', 'adult'] }); return;
       }
       if (req.method === 'POST' && url.pathname === '/api/demo/assessments') {
-        if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') { error(res, 415, 'INVALID_REQUEST', 'Use application/json'); return; }
-        let bytes = 0;
-        const chunks: Buffer[] = [];
-        for await (const chunk of req) {
-          bytes += Buffer.byteLength(chunk);
-          if (bytes > maxBodyBytes) { error(res, 413, 'TOO_LARGE', 'Demo request exceeds 4096 bytes'); return; }
-          chunks.push(Buffer.from(chunk));
-        }
-        let input: unknown;
-        try { input = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { error(res, 400, 'INVALID_REQUEST', 'Malformed JSON'); return; }
+        stage = 'public-demo';
+        const input = await readJson(req);
         const parsed = demoRequestSchema.safeParse(input);
         if (!parsed.success) { error(res, 400, 'INVALID_REQUEST', 'Choose a demo persona, P01/P16 fixture and supported variant; extra authority fields are not accepted'); return; }
         json(res, 200, renderDemo(parsed.data)); return;
+      }
+      if (req.method === 'POST' && url.pathname === '/api/onboarding/session') {
+        stage = 'onboarding';
+        const body = onboardingRequestSchema.parse(await readJson(req));
+        json(res, 201, await backend.start(body)); return;
+      }
+      const privateRoutes = ['/api/onboarding/context', '/api/onboarding/refresh', '/api/onboarding/logout', '/api/capabilities', '/api/assessments'];
+      if (privateRoutes.includes(url.pathname)) {
+        stage = url.pathname === '/api/assessments' ? 'owned-assessment' : 'session';
+        const credential = bearer(req);
+        // Authenticate before accepting a private body, even without an Origin header.
+        backend.capabilities(credential);
+        if (req.method === 'GET' && url.pathname === '/api/capabilities') { json(res, 200, backend.capabilities(credential)); return; }
+        if (req.method === 'POST') {
+          const body = await readJson(req);
+          if (url.pathname === '/api/onboarding/context') { json(res, 200, await backend.updateContext(credential, contextUpdateSchema.parse(body))); return; }
+          if (url.pathname === '/api/onboarding/refresh') { const request = refreshRequestSchema.parse(body); json(res, 200, await backend.refresh(credential, request.contextVersion)); return; }
+          if (url.pathname === '/api/onboarding/logout') { z.object({}).strict().parse(body); json(res, 200, backend.logout(credential)); return; }
+          if (url.pathname === '/api/assessments') { json(res, 201, backend.createAssessment(credential, ownedAssessmentRequestSchema.parse(body))); return; }
+        }
       }
       if (req.method === 'GET' && /^\/fixtures\/(P01|P16)$/.test(url.pathname)) {
         const id = url.pathname.split('/')[2];
@@ -62,12 +81,27 @@ export function createApp(options: ServerOptions = {}) {
         });
         res.end(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(fixture.id)} synthetic fixture</title><style>body{font:18px/1.6 system-ui;max-width:48rem;margin:3rem auto;padding:1rem;background:#f4f5ed;color:#182d28}article{background:white;padding:2rem;border:1px solid #cad6cf;border-radius:20px}code{overflow-wrap:anywhere}a{color:#075747}button{padding:.8rem}</style><body><p>BEACON · LOCAL DEMO · ${escapeHtml(fixture.id)}</p><article><h1>${escapeHtml(fixture.title)}</h1><p>${escapeHtml(fixture.text)}</p><p><strong>Illustrative address metadata (not the actual tab URL):</strong><br><code>${escapeHtml(fixture.illustrativeUrl)}</code></p><p>The actual URL is this local page's address in your browser. No domain mapping is configured.</p><button disabled>No credentials collected — fixture only</button><p>Automatic detection is not implemented. The extension can demonstrate manual page access only.</p><a href="${companionOrigin}">Open the Beacon companion</a></article></body></html>`); return;
       }
-      error(res, 404, 'NOT_FOUND', 'This foundation exposes health, public demo fixtures and demo assessments only');
-    } catch {
+      error(res, 404, 'NOT_FOUND', 'This route is not available in the local Beacon backend.');
+    } catch (cause) {
+      if (!res.headersSent && cause instanceof BackendError) { error(res, cause.status, cause.code, cause.message, cause.retryable); return; }
+      if (!res.headersSent && cause instanceof z.ZodError) { error(res, 400, 'INVALID_REQUEST', 'Request does not match the supported schema. Extra authority fields are forbidden.'); return; }
       // Do not log request bodies, excerpts, raw error payloads or configuration.
       if (!res.headersSent) error(res, 500, 'INTERNAL', 'The local foundation request could not complete');
       else res.end();
     }
   });
+  app.on('close', () => backend.close());
+  return app;
+}
+async function readJson(req: IncomingMessage): Promise<unknown> {
+  if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') throw new BackendError(415, 'INVALID_REQUEST', 'Use application/json');
+  let size = 0; const chunks: Buffer[] = [];
+  for await (const chunk of req) { size += Buffer.byteLength(chunk); if (size > maxBodyBytes) throw new BackendError(413, 'TOO_LARGE', 'Request exceeds 4096 bytes'); chunks.push(Buffer.from(chunk)); }
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new BackendError(400, 'INVALID_REQUEST', 'Malformed JSON'); }
+}
+function bearer(req: IncomingMessage): string {
+  const match = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(req.headers.authorization ?? '');
+  if (!match) throw new BackendError(401, 'UNAUTHORIZED', 'A valid application bearer credential is required.');
+  return match[1];
 }
 function escapeHtml(value: string) { return value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!); }

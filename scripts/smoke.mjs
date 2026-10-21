@@ -74,6 +74,18 @@ try {
   await fixturePage.goto(`${base}/fixtures/P16`);
   await fixturePage.getByRole('heading', { name: 'A lesson about suspicious messages' }).waitFor();
   assert.deepEqual(pageErrors, []);
+  const privateFlow = await page.evaluate(async () => {
+    const created = await fetch('/api/onboarding/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'local-demo', syntheticProfile: 'adult', jurisdiction: 'US-CA', optIns: { cloudAnalysis: false, spokenCoaching: false, memory: false } }) });
+    const session = await created.json();
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.credential}` };
+    const owned = await fetch('/api/assessments', { method: 'POST', headers, body: JSON.stringify({ contextVersion: session.contextVersion, fixtureId: 'P01', variant: 'baseline' }) });
+    const body = await owned.json();
+    const logout = await fetch('/api/onboarding/logout', { method: 'POST', headers, body: '{}' });
+    const replay = await fetch('/api/capabilities', { headers });
+    return { created: created.status, owned: owned.status, correctOwner: body.assessment?.ownerId === session.ownerId, fixtureSource: body.assessment?.source, logout: logout.status, replay: replay.status };
+  });
+  assert.deepEqual(privateFlow, { created: 201, owned: 201, correctOwner: true, fixtureSource: 'fixture', logout: 200, replay: 401 });
+  console.log('PASS: browser-origin private local-demo session, owned assessment and logout/replay via companion proxy; no vendor call or credential logged.');
   console.log('PASS: built companion → actual backend, child/teen/adult contexts, P01/P16 and ambiguous variant, preferences, preview without credit, reset, mobile width, inert local fixture pages.');
   const worker = browser.serviceWorkers()[0] ?? await browser.waitForEvent('serviceworker', { timeout: 10000 });
   const extensionId = new URL(worker.url()).hostname;
