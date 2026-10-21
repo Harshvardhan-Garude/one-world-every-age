@@ -1,8 +1,12 @@
 # Architecture and integration handoffs
 
+Current local demo implementation and live diagnostic evidence are recorded in [DEMO.md](DEMO.md). Historical snapshot/status notes below are retained; they must not be treated as the current completion record. The team W14 parent-purchase plan remains in force.
+
 Product: Ozone Layer (working title; internal identifiers keep the earlier "Beacon" name, see the README's Naming section). Based on functional specification v1.2, including parent-approved purchases (section 13.1).
 
 Status: W00/W01 (merged in PR #4) implements the workspace and baseline contracts described in [the foundation runbook](FOUNDATION.md). Remaining APIs and product behavior below are future handoff targets based on functional specification v1.2 sections 6–8 and 12–14, including 13.1. The specification governs product behavior; [CONTRIBUTING.md](../CONTRIBUTING.md) governs contribution policy.
+
+The local integration now implements W02 and the P01/P16 offline companion teaching flow described in [BACKEND.md](BACKEND.md). Purchase routes below remain design targets. The optional browser k-ID widget is not an identity handoff: `/api/kid/claim` reports a redemption blocker, and `/api/kid/session` accepts only a W02 bearer plus context version. Never turn a widget session ID into application ownership. See [the integration decisions](INTEGRATION.md) for exact included commits and remaining shared work.
 
 ## Proposed workspace
 

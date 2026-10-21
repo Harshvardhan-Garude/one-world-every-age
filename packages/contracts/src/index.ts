@@ -13,7 +13,7 @@ export const contextSchema = z.object({
   jurisdiction: z.object({ country: z.string().regex(/^[A-Z]{2}$/), state: z.string().max(80).optional(), source: z.enum(['synthetic', 'user-declared', 'estimated', 'provider']) }).strict(),
   preferences: z.object({ largeText: z.boolean(), plainLanguage: z.boolean() }).strict(),
 }).strict();
-export const capabilityNames = ['cloud_content_analysis', 'ai_coaching', 'voice_input', 'voice_output', 'uploads', 'conversation_memory', 'permitted_guardian_sharing'] as const;
+export const capabilityNames = ['cloud_content_analysis', 'ai_coaching', 'voice_input', 'voice_output', 'uploads', 'conversation_memory', 'permitted_guardian_sharing', 'purchases'] as const;
 export const capabilityNameSchema = z.enum(capabilityNames);
 export const decisionSchema = z.object({
   state: z.enum(['allowed', 'denied', 'pending', 'unknown', 'expired']),
@@ -73,7 +73,7 @@ export const providerStatusSchema = z.object({
   status: z.enum(['live verified', 'implemented but unverified', 'mock', 'not configured', 'deferred']),
   mode: modeSchema.nullable(), detail: textSchema,
 }).strict();
-export const structuredErrorSchema = z.object({ code: z.enum(['INVALID_REQUEST', 'NOT_FOUND', 'FORBIDDEN', 'TOO_LARGE', 'UNAVAILABLE', 'INTERNAL']), message: textSchema, retryable: z.boolean(), requestId: idSchema }).strict();
+export const structuredErrorSchema = z.object({ code: z.enum(['INVALID_REQUEST', 'NOT_FOUND', 'UNAUTHORIZED', 'FORBIDDEN', 'CONFLICT', 'LIMITED', 'TOO_LARGE', 'UNAVAILABLE', 'INTERNAL']), message: textSchema, retryable: z.boolean(), requestId: idSchema }).strict();
 export const publicChallengeSchema = z.object({
   id: idSchema, version: z.number().int().positive(), credit_key: idSchema,
   category: z.enum(['financial', 'privacy', 'claim', 'judgment']), question: textSchema,
@@ -96,13 +96,64 @@ export const voiceTurnSchema = z.object({
   if (turn.cancelled && !['stopped', 'error', 'unavailable'].includes(turn.stage)) ctx.addIssue({ code: 'custom', message: 'A cancelled turn cannot remain active' });
 });
 export const demoRequestSchema = z.object({
-  mode: z.literal('local-demo'), persona: personaSchema, fixtureId: z.enum(['P01', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']),
+  mode: z.literal('local-demo'), persona: personaSchema, fixtureId: z.enum(['P01', 'P10', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']),
 }).strict();
+export const onboardingRequestSchema = z.object({
+  mode: z.enum(['local-demo', 'provider-test']), syntheticProfile: personaSchema,
+  jurisdiction: z.string().regex(/^[A-Z]{2}(-[A-Z0-9]{1,3})?$/), optIns: optInsSchema,
+}).strict();
+export const contextUpdateSchema = z.object({
+  contextVersion: z.number().int().positive(), optIns: optInsSchema.optional(),
+  jurisdiction: onboardingRequestSchema.shape.jurisdiction.optional(), syntheticProfile: personaSchema.optional(),
+}).strict().refine(value => value.optIns !== undefined || value.jurisdiction !== undefined || value.syntheticProfile !== undefined, 'Supply a context change');
+export const refreshRequestSchema = z.object({ contextVersion: z.number().int().positive() }).strict();
+export const ownedAssessmentRequestSchema = z.object({
+  contextVersion: z.number().int().positive(), fixtureId: z.enum(['P01', 'P10', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']),
+}).strict();
+// Additive W06/W07/local-practice handoff. Mode, ownership and explanation text
+// are resolved by the server; clients submit references, never provider authority.
+export const coachingRequestSchema = z.object({ assessmentId: idSchema, contextVersion: z.number().int().positive() }).strict();
+export const coachingResponseSchema = z.object({
+  explanationId: idSchema, contextVersion: z.number().int().positive(),
+  mode: z.enum(['local-demo', 'provider-test']), source: z.enum(['scripted-fixture', 'Gemini']),
+  notice: textSchema, reply: explanationReplySchema,
+}).strict().refine(value => (value.mode === 'local-demo') === (value.source === 'scripted-fixture'), 'Explanation provenance must match execution mode');
+export const speechRequestSchema = coachingRequestSchema.extend({ explanationId: idSchema }).strict();
+export const speechResponseSchema = z.object({
+  assessmentId: idSchema, explanationId: idSchema, contextVersion: z.number().int().positive(),
+  mode: z.literal('provider-test'), source: z.literal('Inworld'), notice: textSchema,
+  captions: textSchema, mimeType: z.literal('audio/mpeg'), audioBase64: z.string().min(4).max(1_398_104),
+}).strict();
+export const quizRequestSchema = coachingRequestSchema;
+export const quizResponseSchema = z.object({
+  assessmentId: idSchema, contextVersion: z.number().int().positive(), mode: z.literal('local-demo'),
+  source: z.literal('curated-fixture'), notice: textSchema, challenge: publicChallengeSchema,
+}).strict();
+export const quizAnswerRequestSchema = coachingRequestSchema.extend({ version: z.number().int().positive(), choiceId: idSchema }).strict();
+export const quizFeedbackSchema = z.object({
+  assessmentId: idSchema, contextVersion: z.number().int().positive(), challengeId: idSchema, version: z.number().int().positive(),
+  mode: z.literal('local-demo'), source: z.literal('server-checked-fixture'), correct: z.boolean(),
+  feedback: textSchema, notice: textSchema, masteryCreditAwarded: z.literal(false),
+}).strict();
+export const providerListSchema = z.object({ providers: z.array(providerStatusSchema) }).strict();
+export const sessionViewSchema = z.object({
+  ownerId: idSchema, mode: z.enum(['local-demo', 'provider-test']), contextVersion: z.number().int().positive(),
+  syntheticProfile: personaSchema, jurisdiction: onboardingRequestSchema.shape.jurisdiction, optIns: optInsSchema,
+  applicationExpiresAt: timestamp, onboardingState: z.enum(['local-demo', 'active', 'pending', 'prohibited', 'unavailable']),
+  capabilities: capabilitySnapshotSchema, authorizationFreshness: z.literal('refresh-before-dispatch-and-delivery'),
+  provider: z.object({ provider: z.literal('k-ID'), status: providerStatusSchema.shape.status, environment: z.literal('k-ID Test Mode'), detail: textSchema, mappingConfirmed: z.boolean(), lastSuccessfulCallAt: timestamp.optional(), verifiedSessionAt: timestamp.optional() }).strict(),
+  challenge: z.object({ type: z.enum(['CHALLENGE_PARENTAL_CONSENT', 'CHALLENGE_AGE_GATE_AGE_ASSURANCE']), url: z.url().max(2048), environment: z.literal('k-ID Test Mode') }).strict().optional(),
+}).strict().superRefine((view, ctx) => {
+  if (view.capabilities.ownerId !== view.ownerId || view.capabilities.mode !== view.mode || view.capabilities.contextVersion !== view.contextVersion || (view.mode === 'local-demo' && view.onboardingState !== 'local-demo') || (view.mode !== 'local-demo' && view.onboardingState === 'local-demo') || (view.challenge && view.onboardingState !== 'pending')) ctx.addIssue({ code: 'custom', message: 'Session response must preserve server-owned context and mode' });
+});
 export const fixtureSchema = z.object({
-  id: z.enum(['P01', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']), title: textSchema,
+  id: z.enum(['P01', 'P10', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']), title: textSchema,
   illustrativeUrl: z.url().max(2048), text: textSchema,
   expectedState: assessmentSchema.shape.state, expectedSeverity: assessmentSchema.shape.severity,
   explanation: textSchema, uncertainty: textSchema, safeAction: textSchema,
+}).strict();
+export const ownedAssessmentResponseSchema = z.object({
+  assessment: assessmentSchema, referenceExpiresAt: timestamp, fixture: fixtureSchema, challenge: publicChallengeSchema,
 }).strict();
 export type DemoRequest = z.infer<typeof demoRequestSchema>;
 export type Assessment = z.infer<typeof assessmentSchema>;
@@ -110,3 +161,35 @@ export type PublicChallenge = z.infer<typeof publicChallengeSchema>;
 export const demoResponseSchema = z.object({ context: contextSchema, capabilities: capabilitySnapshotSchema, fixture: fixtureSchema, assessment: assessmentSchema, challenge: publicChallengeSchema }).strict().superRefine((response, ctx) => {
   if (response.context.mode !== 'local-demo' || response.capabilities.mode !== 'local-demo' || response.assessment.mode !== 'local-demo' || response.assessment.source !== 'fixture' || response.assessment.ownerId !== response.context.id || response.capabilities.ownerId !== response.context.id || response.assessment.contextVersion !== response.context.contextVersion || response.capabilities.contextVersion !== response.context.contextVersion) ctx.addIssue({ code: 'custom', message: 'Demo response must preserve mode, ownership and context' });
 });
+
+// Additive demo contracts; these never carry vendor authorization or answer keys.
+export const curatedLessonSchema = z.object({
+  challenge: publicChallengeSchema,
+  reasons: z.array(z.object({ id: idSchema, text: textSchema }).strict()).min(2).max(6),
+  actions: z.array(z.object({ id: idSchema, text: textSchema }).strict()).min(2).max(6),
+}).strict();
+export const learningAttemptSchema = attemptSchema.extend({ runId: z.uuid() }).strict();
+export const progressSchema = z.object({
+  credits: z.number().int().nonnegative(), creditKeys: z.array(idSchema), badges: z.array(textSchema),
+  status: z.enum(['Explorer', 'Learner', 'Safety Guide']), notice: textSchema,
+}).strict();
+export const learningResultSchema = z.object({
+  correct: z.boolean(), independent: z.boolean(), creditAwarded: z.boolean(), feedback: textSchema, progress: progressSchema,
+}).strict();
+export const voiceBeginSchema = coachingRequestSchema.extend({ adultPresenterConsent: z.literal(true) }).strict();
+export const voiceRecordingSchema = z.object({
+  contextVersion: z.number().int().positive(), durationMs: z.number().int().min(1).max(15000),
+  mimeType: z.enum(['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/wav', 'audio/mpeg']),
+  audioBase64: z.string().min(4).max(2796204).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),
+}).strict();
+export const voiceResultSchema = z.object({
+  turnId: z.uuid(), contextVersion: z.number().int().positive(), source: z.literal('Modulate → Gemini → Inworld'),
+  reply: explanationReplySchema, audioBase64: speechResponseSchema.shape.audioBase64.optional(),
+  mimeType: z.literal('audio/mpeg').optional(), speechUnavailable: textSchema.optional(), notice: textSchema,
+}).strict();
+export const purchaseRequestSchema = coachingRequestSchema.extend({ itemId: z.literal('ozone-theme'), idempotencyKey: idSchema }).strict();
+export const purchaseResultSchema = z.object({
+  id: z.uuid(), itemId: z.literal('ozone-theme'), amountMinor: z.literal(100), currency: z.literal('USD'),
+  state: z.enum(['blocked_by_policy', 'checkout_ready', 'unavailable']), mode: modeSchema,
+  reason: textSchema, checkoutUrl: z.url().optional(), checkoutCalls: z.number().int().nonnegative(), chargeCalls: z.literal(0),
+}).strict();

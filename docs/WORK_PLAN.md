@@ -1,6 +1,8 @@
 # Implementation work plan
 
-Source: [functional specification v1.2](../INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md) for Ozone Layer (working title). Status: W00/W01 approved and merged in PR #4; W02–W15 not started. Roles were agreed by the team on October 21; each task's owner follows from its role.
+Current local demo implementation and live diagnostic evidence are recorded in [DEMO.md](DEMO.md). Historical snapshot/status notes below are retained; they must not be treated as the current completion record. The team W14 parent-purchase plan remains in force.
+
+Source: [functional specification v1.2](../INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md) for Ozone Layer (working title). Status: W00/W01 merged in PR #4. The local integration contains W02, offline teaching, provider adapters and a companion quiz flow; real k-ID/voice verification and full W03–W15 acceptance are incomplete. See [the audited integration state](INTEGRATION.md). Roles were agreed by the team on October 21; each task's owner follows from its role.
 
 ## Three roles and the coordinator
 
@@ -19,7 +21,7 @@ Update work by editing the task's owner/status in a small PR, or linking an agre
 2. W00 and W01 are merged (PR #4). New branches start from that `main`.
 3. Start the real k-ID access/session spike early. Build P01/P16 locally while live access is being resolved. Never invent vendor interfaces to hide an access blocker. Early, ask the k-ID mentor to enable Transactions for our organization, and ask FastSpring's on-site contact the two open questions in spec 13.1.
 4. Integrate extension → owned assessment → evidence/safe action → optional preset challenge. Keep this slice runnable as providers are added.
-5. Build the approve-each-request purchase path (W14) alongside the k-ID work, in FastSpring test mode. If a real test charge isn't confirmed in time, use FastSpring's documented simulated charge and label it.
+5. After the core safety flow (M1–M3), build the approve-each-request purchase path (W14), in FastSpring test mode. If a real test charge isn't confirmed in time, use FastSpring's documented simulated charge and label it.
 6. Add Gemini text → Inworld output → Modulate input in that order. Demonstrate server denial and Stop/revocation before expanding the happy path.
 7. Complete the monthly-limit and notify-after-purchase rules, replay-safe learning, P08, and the remaining catalog. Reserve the final hour before the event's confirmed submission deadline for integration, regression, documentation and rehearsal. Event times in the spec require confirmation before operational use.
 8. Stretch, only if M1–M3 and M6 pass end to end with time left: W15 learning game.
@@ -46,19 +48,19 @@ Owners follow the agreed roles: A = Harsh, B = Joseph, C = Angela with Joseph, C
 | --- | --- | --- | --- | --- | --- |
 | W00 | Workspace and reproducible developer setup | Harsh (all reviewed) | — | done | [Foundation evidence](FOUNDATION.md) · PR #4 |
 | W01 | Shared contracts and P01/P16 baseline fixtures | Harsh (all reviewed) | W00 | done | [Foundation evidence](FOUNDATION.md) · PR #4 |
-| W02 | Authentication, k-ID sessions and capability enforcement | Harsh (A) | W01 | ready | — |
-| W03 | MV3 site access, extraction, local rules and popup | Joseph (B) | W01 | ready | — |
-| W04 | Companion onboarding, finding view and demo navigation | Joseph (B) | W01; W02 for live flow | ready | — |
-| W05 | Extension-to-companion assessment flow and warnings | Harsh + Joseph (A + B) | W02–W04 | ready | — |
-| W06 | Gemini evidence-based typed coaching | Angela + Joseph (C) | W01/W02/W05 | ready | — |
-| W07 | Inworld speech output and captions | Angela + Joseph (C + B) | W06 | ready | — |
-| W08 | Modulate push-to-talk and cancellable voice turns | Angela + Joseph + Harsh (C + B + A) | W02/W07 | ready | — |
-| W09 | Curated challenges, progress and badges | Harsh + Joseph (A + B) | W01/W04; W02 for owned accounts | ready | — |
+| W02 | Authentication, k-ID sessions and capability enforcement | Harsh (A) | W01 | in progress | [W02 code and live blockers](BACKEND.md) |
+| W03 | MV3 site access, extraction, local rules and popup | Joseph (B) | W01 | in progress | Manual shell only; extraction/detection missing |
+| W04 | Companion onboarding, finding view and demo navigation | Joseph (B) | W01; W02 for live flow | in progress | [Offline teaching wired; widget optional](INTEGRATION.md) |
+| W05 | Extension-to-companion assessment flow and warnings | Harsh + Joseph (A + B) | W02–W04 | in progress | Owned companion flow wired; extension handoff pending |
+| W06 | Gemini evidence-based typed coaching | Angela + Joseph (C) | W01/W02/W05 | in progress | Adapter/mock tests; standalone Gemini diagnostic only |
+| W07 | Inworld speech output and captions | Angela + Joseph (C + B) | W06 | blocked | Adapter/mock tests; credentials and playback UI pending |
+| W08 | Modulate push-to-talk and cancellable voice turns | Angela + Joseph + Harsh (C + B + A) | W02/W07 | blocked | Modulate credentials and redaction/voice implementation pending |
+| W09 | Curated challenges, progress and badges | Harsh + Joseph (A + B) | W01/W04; W02 for owned accounts | in progress | Unscored practice works; progress/awards missing |
 | W10 | Privacy controls, deletion, revocation and lifecycle cleanup | All (A + B + C) | W02/W05; W08 for voice cleanup | ready | — |
 | W11 | Full scenario catalog and all-ages copy | Joseph + Angela (B + C) | W01/W05 | ready | — |
-| W12 | Automated regression and actual extension smoke validation | All (A + B + C) | W03–W11 and W14 as each lands | ready | — |
+| W12 | Automated regression and actual extension smoke validation | All (A + B + C) | W03–W11 and W14 as each lands | in progress | [Combined verification](INTEGRATION.md) |
 | W13 | Runbook, honest provider report and two-minute rehearsal | Angela (Coordinator) + all | W12; record all unmet gates | ready | — |
-| W14 | Parent consent, purchase policy and FastSpring charges | Harsh (A) + Joseph (B) | W02; W04 for screens | ready | — |
+| W14 | Parent consent, purchase policy and FastSpring charges | Harsh (A) + Joseph (B) | W02; W04 for screens | ready | After core safety flow; planning only, no checkout/webhooks |
 | W15 | Stretch: offline learning game after a block | Joseph (B) | W05 and M6; only with time left | ready | — |
 
 ### W00 — Bootstrap

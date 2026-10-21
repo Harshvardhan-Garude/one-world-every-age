@@ -1,5 +1,7 @@
 # W00/W01 foundation runbook
 
+Historical foundation checkpoint, merged upstream in PR #4. W02 now adds authenticated backend sessions and owned fixture references; see [the current backend handoff](BACKEND.md). The remaining text records the original W00/W01 scope and results, rather than claiming W02 has no authentication.
+
 This is the first implementation boundary, approved and merged in PR #4. W02–W15 remain open. The product's working title is now Ozone Layer; internal `@beacon/*` and `BEACON_*` identifiers keep the earlier name (see the README's Naming section). See the README for setup; this file records decisions, exact coverage and the handoff.
 
 ## Implemented layout

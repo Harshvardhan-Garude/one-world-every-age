@@ -2,9 +2,9 @@
 
 *Working title. Earlier drafts and some internal identifiers use "Beacon" (see [Naming](#naming)).*
 
-A browser safety companion for learning to notice online risks, understand evidence, and choose a safer next step. Children, teenagers, adults and older adults belong in the experience from the start. An adult admin can also let a minor request purchases inside Ozone Layer, with consent, approval and spending rules the adult sets. Basic protection is never behind a payment.
+Ozone Layer is a browser safety companion for learning to notice online risks, understand evidence and choose a safer next step. All ages can explore the current synthetic examples. Parent-approved purchases are planned; basic protection will remain free.
 
-**W00/W01 foundation merged (PR #4).** `main` provides a runnable companion, public demo API, loadable Chrome MV3 shell, shared runtime schemas and P01/P16 fixtures. Automatic detection, production sessions, live providers, voice, purchases, grading and awards remain subsequent work. All demo capabilities are unknown; no demo selection authorizes production use.
+This local integration (`feat/ozone-demo`) records team main `17d69b8`, preserves W02 and the local teaching/provider increment, and connects controlled P01/P10/P16 evidence, owned teaching, a separate curated badge flow, consent withdrawal and zero-call purchase denial. The extension recognizes controlled fixtures and can hand off to an owned companion lesson. Cancellable voice orchestration and an eligible-adult sandbox checkout adapter are implemented with simulated tests; full vendor-authorized voice and W14 parent purchases remain blocked. See [the current demo runbook, provider evidence and two-minute script](docs/DEMO.md).
 
 ## Team and roles
 
@@ -27,7 +27,7 @@ npm run dev
 
 - Companion: **http://127.0.0.1:5173**
 - API health: **http://127.0.0.1:8787/health**
-- Controlled examples: **http://127.0.0.1:8787/fixtures/P01** and **http://127.0.0.1:8787/fixtures/P16**
+- Controlled examples: **http://127.0.0.1:8787/fixtures/P01** , **http://127.0.0.1:8787/fixtures/P10** and **http://127.0.0.1:8787/fixtures/P16**
 - Stop with Ctrl+C; the runner closes both children. Occupied ports fail instead of silently changing.
 
 No provider keys or `.env` file are needed. Optional settings are listed in `.env.example`; copy it only when `.env` does not already exist. Never overwrite or commit an existing `.env`. Runtime scripts load root `.env` server-side; provider configuration is not imported by browser code.
@@ -42,13 +42,13 @@ npm run dev:extension
 
 1. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select **`apps/extension/dist`** in this checkout.
 2. Keep `npm run dev` running and open a controlled local fixture in Chrome.
-3. Invoke Ozone Layer from its toolbar icon. Choose **Show current-page access**. On an accessible HTTP(S) tab, a dismissible notice confirms temporary access and says no content analysis ran.
-4. **Open companion demo** opens the configured companion. Restricted browser/extension pages must show unavailable access.
+3. Invoke Ozone Layer from its toolbar icon. Choose **Show current-page access**. On a supported controlled fixture, a dismissible notice shows fixture evidence and a safe next action; other pages receive an unsupported state. General browsing analysis is unavailable.
+4. **Open owned fixture lesson** uses a one-time local fixture ticket after local-origin access and CORS setup; **Open companion demo** remains available. Follow [DEMO.md](docs/DEMO.md#build-and-load-the-extension). Restricted browser/extension pages show unavailable access.
 5. After rebuilding, reload the extension in Chrome. See the [foundation runbook](docs/FOUNDATION.md) for the complete manual checklist and automated coverage.
 
-Installation requests `activeTab`, `scripting` and `storage`, with no required host access or automatic content scripts. Optional host declarations reserve later per-origin monitoring; the shell does not request or use them. It does not scan, send page content to the API, or record sound.
+Installation requests `activeTab`, `scripting` and `storage`, with no required host access or automatic content scripts. Optional host declarations reserve later per-origin monitoring; the shell does not request or use them. It recognizes exact visible controlled fixtures after a manual action; it sends only fixture identifiers to the local owned-assessment API and never records sound.
 
-`BEACON_COMPANION_ORIGIN` defaults to `http://127.0.0.1:5173` and is baked into the popup at build time; rebuild after changing it. The popup's **Local connection** section shows its real extension origin. For a future API connection, add that exact origin to the local server's comma-separated `BEACON_EXTENSION_ORIGINS` and restart the API. This nonsecret CORS allowlist grants neither authentication nor feature permission. The shell currently makes no extension-to-API requests.
+`BEACON_COMPANION_ORIGIN` defaults to `http://127.0.0.1:5173` and is baked into the popup at build time; rebuild after changing it. The popup's **Local connection** section shows its real extension origin. For a future API connection, add that exact origin to the local server's comma-separated `BEACON_EXTENSION_ORIGINS` and restart the API. This nonsecret CORS allowlist grants neither authentication nor feature permission. The owned fixture handoff makes authenticated local API requests; it transfers no vendor authorization.
 
 ## Commands
 
@@ -72,55 +72,45 @@ npx playwright install chromium
 npm run test:smoke
 ```
 
-Smoke uses isolated ports **15173/18787** and closes its servers/browser afterward. Playwright **1.55.1** is pinned for the available Ubuntu 20.04 test host; this is a development-tool constraint, not a product browser requirement. The visible **Reset demo** button restores in-memory persona, fixture, preferences and preview selections. No history, progress or recordings are persisted.
+Smoke uses isolated ports **15173/18787** and closes its servers/browser afterward. Playwright **1.55.1** is pinned for the available Ubuntu 20.04 test host; this is a development-tool constraint, not a product browser requirement. The visible **Reset demo** button restores in-memory persona, fixture, preferences and preview selections. Anonymous curated learning progress persists in the ignored local SQLite database; its progress-only resume token is separate from application credentials. Reset/delete controls and privacy limits are documented in DEMO.md. No browsing history, recording or transcript is persisted.
 
 ## What works and what remains
 
-The companion fetches validated demo assessments for synthetic child, teen and adult contexts. Larger text and plain language are available to everyone, including older adults. P01 credential/reward and P16 educational/legitimate comparisons have baseline, safe and ambiguous variants, deterministic evidence IDs, explanations and safe actions. These are pre-authored fixture outcomes, not live scanning. The other 16 scenario families remain unimplemented.
+The companion fetches validated demo assessments for synthetic child, teen and adult contexts. Larger text and plain language are available to everyone, including older adults. P01 credential/reward and P16 educational/legitimate comparisons have baseline, safe and ambiguous variants, deterministic evidence IDs, explanations and safe actions. These are pre-authored fixture outcomes, not live scanning. The P10 fictional toll-email scene adds evidence and independent verification advice for Susan, 68. Other scenario families remain unimplemented.
 
-Question/choice previews do not grade or award credit. Rubric schemas and answers use separate Node-only exports and are absent from browser bundles. The public API exposes health, catalog, inert fixture pages and `POST /api/demo/assessments`; it rejects extra owner/grant/correctness fields and production modes. No production authorization endpoint exists. The extension is a popup/worker/manual-access shell, with no threat verdict or background monitoring.
+The companion checks the teaching quiz on the server without mastery credit. A separate nine-scenario curated challenge flow requires observation, reason and action, and awards idempotent credits/badges under spec section 10; reveals and retries after feedback are practice-only. The original public preview API remains available. Rubric schemas and answers use separate Node-only exports and are absent from browser bundles. The public API exposes health, catalog, inert fixture pages and `POST /api/demo/assessments`; it rejects extra owner/grant/correctness fields and production modes. No production authorization endpoint exists. The extension recognizes controlled fixture evidence only, with no general threat verdict or background monitoring.
 
 Illustrative `*.example` addresses are labeled metadata; actual fixture URLs are local. No sample domain mapping is configured. No supported indicators never means verified safe.
+
+## Authenticated backend
+
+Public demo routes are preserved. `POST /api/onboarding/session` creates a bounded, short-lived Ozone Layer session; private capabilities, context, refresh, logout and fixture-assessment routes require its bearer credential. Authenticated local-demo P01/P16 assessments now support scripted explanation → short quiz → server-checked teaching feedback, without mastery credit or vendor calls. Gemini/Inworld provider-test routes use the W02 authorization boundary and return explicit **not configured** errors when settings are missing. Production mode is rejected. See [the backend API examples and frontend contract handoff](docs/BACKEND.md) for a complete runnable offline request sequence, runtime provider status, exact configuration and live-verification gaps. The companion is wired to these private offline routes. It keeps application credentials only in memory and logs out on lesson/persona changes; stale sessions show a reload action. Provider-test UI remains separate.
 
 ## Provider and privacy status
 
 | Provider | Assigned responsibility | Current state |
 | --- | --- | --- |
-| k-ID | Permission session decisions in W02; parent purchase approval and purchase reporting in W14 | **Not configured**; interface only. Team has k-ID access; k-ID must enable Transactions for our organization |
-| Gemini | Evidence-based reasoning in W06 | **Not configured**; interface only |
-| Inworld | Validated speech output in W07 | **Not configured**; interface only |
-| Modulate | Speech transcription/redaction in W08 | **Not configured**; interface only |
-| FastSpring | Parent's saved payment method and test-mode charges for approved purchases in W14 | **Not configured**; two behaviors to confirm with FastSpring ([spec 13.1](INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md#131-parent-approved-purchases)) |
+| k-ID | W02 Test Mode sessions and permission refresh | CDK adapter implemented but unverified; runtime **not configured** without credentials/workflow |
+| Gemini | Evidence-based reasoning in W06 | Standalone live connectivity verified with `gemini-3.5-flash-lite`; protected application route still unverified pending genuine k-ID authorization; **not configured** without key/model |
+| Inworld | Validated speech output in W07 | Non-streaming MP3 adapter and protected route implemented; simulated HTTP tests only; **not configured** without key/model/voice |
+| Modulate | Speech transcription/redaction in W08 | Batch multipart-redaction adapter and cancellable voice orchestration implemented; simulated tests plus an isolated real synthetic-redaction diagnostic; application remains **not configured** until retention is confirmed |
+| FastSpring | Parent's saved payment method and test-mode charges for approved purchases in W14 | Eligible-adult hosted sandbox adapter and server denial implemented; catalog connectivity only verified live; parent saved-method flow blocked, with two behaviors to confirm with FastSpring ([spec 13.1](INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md#131-parent-approved-purchases)) |
 
-No live provider calls, mock production approvals or real-person recordings were made. Pre-authored explanations are labeled fixtures, not live AI. SDK/auth/model/retention configuration must be confirmed by the owning task; environment placeholders do not establish access.
+Automated provider tests use injected simulated HTTP responses. A separate live Gemini diagnostic with fixed fictional text verified authentication/model access and structured response parsing; see [the exact results and remaining application blockers](docs/BACKEND.md#live-gemini-connectivity-diagnostic--2026-10-21). Separate diagnostics also verified k-ID requirements, Inworld fictional synthesis, Modulate multipart redaction and FastSpring read-only catalog; see DEMO.md. No k-ID approval was fabricated and no real-person recording was made. Pre-authored explanations remain labeled fixtures, not live AI. Product permissions and retention configuration still require verification; environment placeholders do not establish access.
 
-The future chain is Modulate redaction → Gemini reasoning → Inworld speech. Browser grants, backend eligibility, cloud consent and explicit Talk intent remain separate. Voice data rule (reconciled in CONTRIBUTING): a consenting **adult** presenter's live voice turn may be processed in memory as the spec describes, but no recording is ever committed, stored or logged, and no child's or real player's voice is used. This foundation collects no audio.
+The implemented, simulated-response-tested voice chain is Modulate redaction → Gemini reasoning → Inworld speech. Full live application authorization remains unverified. Browser grants, backend eligibility, cloud consent and explicit Talk intent remain separate. Voice data rule (reconciled in CONTRIBUTING): a consenting **adult** presenter's live voice turn may be processed in memory as the spec describes, but no recording is ever committed, stored or logged, and no child's or real player's voice is used. The offline flow collects no audio; the separate provider panel requests a microphone only after explicit adult-presenter Talk and server eligibility.
 
 ## k-ID age gate (companion)
 
-The companion opens with k-ID's age-gate widget (`@k-id/core`): it handles jurisdiction, age capture and parental consent, then shows the app. Code: [`apps/companion/src/kid.tsx`](apps/companion/src/kid.tsx).
+The default companion opens directly into labelled offline teaching. The private SDK was supplied and installed as an optional dependency; its types and optional build pass, while the bundled docs still do not define the server claim exchange. See DEMO.md for the exact unresolved contract. The unverified k-ID widget is optional and cannot authorize backend operations. The team's original widget is preserved in [`integrations/kid/widget.tsx`](integrations/kid/widget.tsx); [`apps/companion/src/kid.tsx`](apps/companion/src/kid.tsx) provides an explicit opt-in entry.
 
-**Setup on each machine**
+`npm ci`, typecheck and the default build work without the private SDK, publishable key or support email. Optional widget setup and its unverified status are documented in [the integration handoff](docs/INTEGRATION.md#optional-k-id-widget). No SDK stub or simulated vendor approval is used.
 
-1. Get `k-id-core-web.tgz` from a teammate over a private channel and put it in `vendor/`. The SDK is licensed `UNLICENSED`, so it is git-ignored and must never be pushed. `npm ci` fails until the file is there.
-2. Run `npm ci`.
-3. Add to the root `.env` (use the `setkey` helper so values aren't echoed):
-   - `VITE_KID_PUBLISHABLE_KEY`: the `kgp_test_…` publishable key. It's meant for the browser.
-   - `VITE_KID_SUPPORT_EMAIL`: required; k-ID shows it in its emails to parents and players.
-   - `KID_API_KEY`: the **secret** key from Compliance Studio → Developer Settings, for the server. Not the `kgp_` key.
-4. Restart `npm run dev`. Without the browser values, the companion shows a "k-ID isn't set up" screen instead of the gate.
-
-**What it does**
-
-- Declares only features Ozone Layer really has: `ai-chat`, `ai-voice-mode` and `in-game-purchases`. Privacy, terms and icon are left out, so k-ID keeps its defaults in test mode; a live key needs real ones.
-- Saves `sessionId` (and `challengeId` while a parent request is pending) in the browser, so the next launch resumes instead of starting over.
-- Sends the one-time `claimToken` to `POST /api/kid/claim`. k-ID's public docs don't document how a backend redeems it, so the server accepts it without storing or logging it and reports a labeled blocker. Confirm the redemption call with the k-ID mentor (W02).
-- `POST /api/kid/session` reads the session on the server with the secret key (k-ID's documented `GET /api/v1/session/get`) and returns only its age status, jurisdiction and permissions. Status: implemented, unverified against live k-ID.
-- The "Your features" panel uses `<KidPermission>` to show each feature's state, and `<KidSettings>` lets players change permissions (guardian-managed ones ask a grown-up). This only controls what's visible: the backend must still check each capability before doing anything.
+`POST /api/kid/claim` still accepts a bounded token and reports `redeemed: false`; no guessed redemption endpoint is called. `POST /api/kid/session` now requires an application bearer credential and `{contextVersion}` and refreshes only its server-bound W02 session. It rejects caller-supplied vendor session IDs. Widget permission visibility remains informational; W02 enforces protected operations.
 
 **Web, iOS and Android**
 
-- The companion is a responsive web app, tested at phone width (375px) and desktop width, for iOS Safari, Android Chrome and in-app WebViews. It respects the notch and home-bar safe areas, uses 16px inputs so iOS doesn't zoom on focus, has 44px touch targets, uses dynamic viewport height, and ships a web app manifest so it can be added to the home screen.
+- The companion is a responsive web app; the combined build passed desktop and 390px Chromium checks. Real iOS Safari, Android Chrome and WebView devices remain unverified. It respects the notch and home-bar safe areas, uses 16px inputs so iOS doesn't zoom on focus, has 44px touch targets, uses dynamic viewport height, and ships a web app manifest so it can be added to the home screen.
 - Chrome extensions don't run on Chrome for iOS or Android, so on phones the companion is the experience. A Safari Web Extension for iOS is later scope.
 - k-ID's API supports native iOS (App Attest) and Android (Key Attestation) clients, but this SDK is the web client. Native apps would need k-ID's native integration and are out of this build's scope.
 
@@ -137,12 +127,14 @@ The product name is **Ozone Layer** (working title); the repository and team nam
 
 | Document | Use |
 | --- | --- |
+| [Current demo runbook](docs/DEMO.md) | Startup, two-minute script, exact provider evidence, blockers and shared-file handoff |
 | [Functional specification v1.2](INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md) | Full product contract, including parent-approved purchases (13.1) and the stretch learning game (8.4) |
 | [Work plan](docs/WORK_PLAN.md) | W02–W15 ownership, dependencies and acceptance mapping |
 | [Architecture](docs/ARCHITECTURE.md) | Component responsibilities and integration boundaries |
+| [Backend handoff](docs/BACKEND.md) | W02 routes, bearer credentials, capability mapping, test evidence and live blockers |
 | [Foundation runbook](docs/FOUNDATION.md) | Exact API/contracts, validation evidence and manual Chrome checklist |
 | [Contributing](CONTRIBUTING.md) | Hooks, approvals, squash merge and synthetic-data policy |
 
-W00/W01 were approved and merged in PR #4. Next: Harsh takes W02 sessions/k-ID/backend and the backend half of W14; Joseph takes W03/W04 detection and companion flows and the screens for W14; Angela coordinates and, with Joseph, reviews provider contracts before W06. The capability helper does not replace W02's authenticated, server-owned authorization.
+W00/W01 merged in PR #4. This integration preserves the team's Harsh/Joseph/Angela ownership assignments and adds a [shared-file handoff and ranked plan](docs/INTEGRATION.md). Harsh and Joseph must agree the widget claim → owned application-session binding before enabling it. Angela/Joseph can continue the provider/voice work against the existing authorization wrapper. A browser capability check or successful standalone Gemini diagnostic does not authorize the application.
 
 Use feature branches, enable `.githooks`, obtain one teammate approval and green `guard` CI, then squash merge under CONTRIBUTING. No deployment, extension publication or direct push to team `main` is included.
