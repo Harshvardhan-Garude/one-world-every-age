@@ -1,0 +1,39 @@
+{
+  "name": "beacon-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12 <23",
+    "npm": ">=10 <12"
+  },
+  "workspaces": [
+    "packages/contracts",
+    "packages/detection",
+    "packages/fixtures",
+    "apps/api",
+    "apps/companion",
+    "apps/extension"
+  ],
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env scripts/dev.mjs",
+    "dev:extension": "node --env-file-if-exists=.env apps/extension/build.mjs --watch",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:smoke": "node scripts/smoke.mjs",
+    "demo:reset": "node scripts/reset-demo.mjs",
+    "check:bundles": "node scripts/check-bundles.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "esbuild": "^0.25.0",
+    "playwright": "1.55.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

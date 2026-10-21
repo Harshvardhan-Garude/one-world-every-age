@@ -1,0 +1,24 @@
+{
+  "name": "@beacon/fixtures",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "node": "./src/server.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@beacon/contracts": "0.1.0",
+    "@beacon/detection": "0.1.0"
+  }
+}
