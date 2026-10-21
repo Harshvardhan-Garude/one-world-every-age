@@ -401,6 +401,15 @@ export class BackendService {
     const payload = JSON.stringify(request), previous = session.purchases.get(request.idempotencyKey);
     if (previous) {
       if (previous.payload !== payload) throw new BackendError(409, 'CONFLICT', 'Purchase retry changed.');
+      // A cached hosted URL is still protected output. Revalidate ownership and
+      // provider permission on retries without creating another checkout.
+      if (previous.result.state === 'checkout_ready') {
+        const cached = await this.withAuthorizedOperation(credential, request.assessmentId, 'checkout', request.contextVersion, async context => {
+          await context.assertCurrent(); return structuredClone(previous.result);
+        }, signal);
+        this.#version(session, request.contextVersion); this.#owned(session, request.assessmentId); signal?.throwIfAborted();
+        return cached;
+      }
       return structuredClone(previous.result);
     }
     if (session.purchases.size >= 20) throw new BackendError(429, 'LIMITED', 'Purchase request limit reached.');
@@ -414,6 +423,7 @@ export class BackendService {
         if (this.#checkout.transport === 'unavailable') throw new BackendError(503, 'UNAVAILABLE', this.#checkout.status().detail);
         result.checkoutCalls++; return this.#checkout.checkout(result.id, context);
       }, signal);
+      this.#version(session, request.contextVersion); this.#owned(session, request.assessmentId); signal?.throwIfAborted();
       result.state = 'checkout_ready'; result.checkoutUrl = output.checkoutUrl;
       result.reason = 'Hosted sandbox checkout for an eligible adult and our optional Ozone theme only. No charge or completed order is claimed. This does not implement parent saved-method purchases.';
     } catch (cause) {

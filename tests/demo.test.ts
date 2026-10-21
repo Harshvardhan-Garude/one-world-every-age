@@ -199,3 +199,16 @@ test('P10 owned teaching supports every persona/variant and Inworld-only failure
   const response = await h.backend.voice(adult.credential, turn.turnId, { contextVersion: adult.contextVersion, durationMs: 1000, mimeType: 'audio/webm', audioBase64: Buffer.from('synthetic-original-recording').toString('base64') });
   assert.equal(response.audioBase64, undefined); assert.match(response.speechUnavailable!, /matching text captions/); assert.equal(response.reply.spokenText, response.reply.explanation); assert.equal(h.stats.gemini, 1); h.backend.close();
 });
+
+
+test('cached sandbox checkout retries refresh authorization without creating a second checkout', async () => {
+  const h = harness(), adult = await owned(h.backend, 'provider-test', 'adult');
+  const input = { ...adult.request, itemId: 'ozone-theme', idempotencyKey: randomUUID() };
+  const first = await h.backend.purchase(adult.credential, input);
+  assert.equal(first.state, 'checkout_ready');
+  const retry = await h.backend.purchase(adult.credential, input);
+  assert.equal(retry.checkoutUrl, first.checkoutUrl); assert.equal(h.stats.checkout, 1);
+  h.deny('in-game-purchases');
+  await assert.rejects(() => h.backend.purchase(adult.credential, input), { code: 'CONFLICT' });
+  assert.equal(h.stats.checkout, 1); h.backend.close();
+});
