@@ -1,6 +1,6 @@
 # Implementation work plan
 
-Source: [functional specification v1.1](../INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md). Status: planning only; all implementation tasks below are unclaimed and not started. This document assigns responsibility by role without inventing teammate commitments. Replace the owner cell with a person's name when they claim a task.
+Source: [functional specification v1.1](../INTERNET_SAFETY_COMPANION_FUNCTIONAL_SPEC_FINAL.md). Status: W00/W01 implemented and in review on `feat/workspace-bootstrap`; W02–W13 remain unclaimed and not started. This document assigns responsibility by role without inventing teammate commitments. Replace the owner cell with a person's name when they claim a task.
 
 ## Three roles
 
@@ -36,12 +36,12 @@ An unmet gate remains incomplete. If time expires, report the working slice and 
 
 ## Claimable tasks
 
-Every task starts **unclaimed**; the role below is the proposed owner. Dependencies name integration prerequisites, not a prohibition on independent design or access checks. Use `feat/<task-name>`, `fix/<task-name>`, or `chore/<task-name>` branches under CONTRIBUTING.
+W00/W01 are in review; subsequent tasks remain **unclaimed** and the role below is the proposed owner. Dependencies name integration prerequisites, not a prohibition on independent design or access checks. Use `feat/<task-name>`, `fix/<task-name>`, or `chore/<task-name>` branches under CONTRIBUTING.
 
 | ID | Deliverable | Proposed owner | Depends on | Status | Evidence / PR |
 | --- | --- | --- | --- | --- | --- |
-| W00 | Workspace and reproducible developer setup | A + B + C | — | unclaimed | — |
-| W01 | Shared contracts and P01/P16 baseline fixtures | A + B + C | W00 | unclaimed | — |
+| W00 | Workspace and reproducible developer setup | Bootstrap author; team review pending | — | in review | [Foundation evidence](FOUNDATION.md) · `feat/workspace-bootstrap` |
+| W01 | Shared contracts and P01/P16 baseline fixtures | Bootstrap author; team review pending | W00 | in review | [Foundation evidence](FOUNDATION.md) · `feat/workspace-bootstrap` |
 | W02 | Authentication, k-ID sessions and capability enforcement | A | W01 | unclaimed | — |
 | W03 | MV3 site access, extraction, local rules and popup | B | W01 | unclaimed | — |
 | W04 | Companion onboarding, finding view and demo navigation | B | W01; W02 for live flow | unclaimed | — |

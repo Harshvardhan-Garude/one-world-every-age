@@ -1,10 +1,10 @@
 # Architecture and integration handoffs
 
-Status: proposed implementation defaults, based on functional specification v1.1 sections 6–8 and 12–14. No component or endpoint in this document is implemented by the planning PR. The specification governs product behavior; [CONTRIBUTING.md](../CONTRIBUTING.md) governs contribution policy.
+Status: W00/W01 implements the workspace and baseline contracts described in [the foundation runbook](FOUNDATION.md). Remaining APIs and product behavior below are future handoff targets based on functional specification v1.1 sections 6–8 and 12–14. The specification governs product behavior; [CONTRIBUTING.md](../CONTRIBUTING.md) governs contribution policy.
 
 ## Proposed workspace
 
-Use the specification's TypeScript monorepo default unless the bootstrap review records a reason to change it. The repository has no committed application stack. A local untracked Next.js starter is not a reason to publish or adopt it without review.
+The W00/W01 branch uses the specification's TypeScript monorepo default. The prior untracked Next.js starter was preserved outside the checkout. See the runbook for implemented paths, scripts and limits.
 
 ```text
 apps/
@@ -18,13 +18,13 @@ packages/
 docs/                  Architecture, work plan, later run/verification instructions
 ```
 
-W00 owns package-manager/runtime choices, pinned dependencies, and one lockfile. SQLite is the default development progress store; runtime schemas use Zod or an equivalent. Package names, ports, exact paths, and framework versions become established only in the reviewed bootstrap PR. Avoid independently creating competing app roots or lockfiles.
+W00 selected npm workspaces, Node 22 LTS, pinned lockfile dependencies, and one root lockfile. SQLite is the default development progress store; runtime schemas use Zod or an equivalent. Actual package names, ports, paths and versions are recorded in the foundation runbook and root lockfile; they remain subject to bootstrap review. Avoid independently creating competing app roots or lockfiles.
 
 ### Required script outcomes
 
-W00 must document and verify one command each for dependency installation, app/backend development, extension development/build, production build, unit/integration tests, browser smoke tests, and demo reset. A clean clone must reproduce them. These are outcomes to implement, not commands already available.
+The README now documents verified commands for dependency installation, app/backend development, extension development/build, production build, tests, browser smoke and demo reset. W00/W01 verification is recorded in the foundation runbook; later functionality still needs its owning tests.
 
-The README must then name the real extension build directory and explain Chrome Developer mode → Load unpacked, site permissions, local fixture URL, companion/API addresses, and the expected first warning. Include any actual host mapping needed for fixture domains; simulated fixture URL metadata must be explicitly labeled.
+The README names the real extension build directory and explains Chrome Developer mode → Load unpacked, local fixtures and companion/API addresses. The current extension shows a manual-access notice; an actual threat warning remains W03/W05 work. Include any actual host mapping needed for fixture domains; simulated fixture URL metadata must be explicitly labeled.
 
 ## Shared contracts before independent work
 

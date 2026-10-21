@@ -1,0 +1,14 @@
+{
+  "name": "@beacon/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@beacon/contracts": "0.1.0",
+    "@beacon/detection": "0.1.0",
+    "@beacon/fixtures": "0.1.0"
+  }
+}
