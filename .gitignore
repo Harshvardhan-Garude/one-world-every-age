@@ -55,7 +55,7 @@ recordings/
 
 # Private vendor SDKs (e.g. k-ID @k-id/core, license UNLICENSED): never publish.
 # Teammates get the tarball over a private channel and drop it in vendor/.
-vendor/*.tgz
+vendor/
 
 # Local anonymous learning progress; never contains recordings or excerpts.
 .local/
