@@ -132,6 +132,7 @@ try {
   // This verifies extraction/rendering, independently of the manual activeTab grant.
   const contentArtifact = await readFile(path.join(extensionPath, 'content.js'), 'utf8');
   await fixturePage.evaluate(contentArtifact);
+  assert.equal(await fixturePage.evaluate(() => globalThis.__beaconFixtureResult?.fixtureId), 'P01', 'Built content must expose the bounded result even inside Vite’s wrapper');
   assert.match(await fixturePage.locator('#beacon-foundation-notice section').textContent(), /Concern in controlled fixture/);
   await fixturePage.evaluate(contentArtifact);
   assert.equal(await fixturePage.locator('#beacon-foundation-notice').count(), 1);

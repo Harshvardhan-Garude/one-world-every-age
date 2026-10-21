@@ -2,7 +2,15 @@ import { recognizeControlledFixture } from '@beacon/fixtures';
 // Runs only after a toolbar action. No forms, editable fields, hidden text or
 // arbitrary browsing content are submitted. No cloud request occurs here.
 (() => {
-  if (!['http:', 'https:'].includes(location.protocol)) return { status: 'unsupported' };
+  // Bundlers wrap this file in an IIFE, so its completion value is not the
+  // inner function's return. Keep the bounded result in this isolated world;
+  // the popup reads it with a separate executeScript function.
+  const report = (result: { status: string; fixtureId?: string; variant?: string; title?: string }) => {
+    (globalThis as typeof globalThis & { __beaconFixtureResult?: unknown }).__beaconFixtureResult = result;
+    return result;
+  };
+  report({ status: 'unsupported' });
+  if (!['http:', 'https:'].includes(location.protocol)) return report({ status: 'unsupported' });
   const id = 'beacon-foundation-notice';
   const article = document.querySelector<HTMLElement>('article[data-ozone-fixture]');
   const visible = (node: Element | null): node is HTMLElement => !!node && !node.closest('input,textarea,select,form,[contenteditable], [hidden],[aria-hidden="true"],#beacon-foundation-notice') && getComputedStyle(node).display !== 'none' && getComputedStyle(node).visibility !== 'hidden' && node.getClientRects().length > 0;
@@ -20,6 +28,6 @@ import { recognizeControlledFixture } from '@beacon/fixtures';
   const provenance = document.createElement('p'); provenance.textContent = 'Local demo · fixture recognition, not real k-ID verification or live AI analysis.';
   const dismiss = document.createElement('button'); dismiss.textContent = 'Dismiss'; dismiss.onclick = () => host.remove();
   panel.append(title, explanation, address, action, provenance, dismiss); shadow.append(style, panel); document.documentElement.append(host);
-  if (fixture) { destination?.setAttribute('style', 'background:#fff0a6;color:#182d28'); return { status: 'fixture', fixtureId: fixture.id, variant: fixture.variant, title: fixture.title }; }
-  return { status: 'unsupported' };
+  if (fixture) { destination?.setAttribute('style', 'background:#fff0a6;color:#182d28'); return report({ status: 'fixture', fixtureId: fixture.id, variant: fixture.variant, title: fixture.title }); }
+  return report({ status: 'unsupported' });
 })();

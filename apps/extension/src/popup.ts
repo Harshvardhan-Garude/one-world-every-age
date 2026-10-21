@@ -8,10 +8,12 @@ chrome.runtime.sendMessage({ operation: 'beacon.foundationStatus' }).then(respon
   document.querySelector('#worker')!.textContent = response?.stage === 'foundation' ? 'Worker ready · controlled fixtures' : 'Worker status unavailable';
 }).catch(() => { document.querySelector('#worker')!.textContent = 'Worker status unavailable'; });
 document.querySelector<HTMLButtonElement>('#manual')!.onclick = async () => {
+  const handoffButton = document.querySelector<HTMLButtonElement>('#handoff')!; handoffButton.hidden = true; handoffButton.onclick = null;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !tab.url || !/^https?:\/\//.test(tab.url)) { status.textContent = 'Page access unavailable here. Open a regular HTTP(S) page and invoke the toolbar popup.'; return; }
-    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => (globalThis as typeof globalThis & { __beaconFixtureResult?: unknown }).__beaconFixtureResult });
     const parsed = z.object({ status: z.literal('fixture'), fixtureId: z.enum(['P01', 'P10', 'P16']), variant: z.enum(['baseline', 'safe', 'ambiguous']), title: z.string().max(2000) }).strict().safeParse(results[0]?.result);
     if (parsed.success) {
       const result = parsed.data;
@@ -21,6 +23,8 @@ document.querySelector<HTMLButtonElement>('#manual')!.onclick = async () => {
         try {
           const granted = await chrome.permissions.request({ origins: [`${__COMPANION_ORIGIN__}/*`] });
           if (!granted) { status.textContent = 'Local connection permission denied. The on-page text remains available.'; return; }
+          const current = await chrome.tabs.get(tab.id!);
+          if (current.url !== tab.url) { status.textContent = 'The page changed. Check the current fixture again before opening its lesson.'; handoff.hidden = true; return; }
           const reply = await chrome.runtime.sendMessage({ operation: 'beacon.fixtureHandoff', fixtureId: result.fixtureId, variant: result.variant });
           if (!reply?.url || !reply.url.startsWith(`${__COMPANION_ORIGIN__}/?fixture=`)) throw new Error('Unavailable');
           await chrome.tabs.create({ url: reply.url });

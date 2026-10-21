@@ -86,6 +86,14 @@ Sanitized evidence is in [verification/provider-connectivity-2026-10-21.jsonl](v
 | Modulate | The in-memory synthetic Inworld clip reached batch redaction: HTTP 200, multipart metadata/audio parsed. No transcript was sent to Gemini | `MODULATE_API_KEY` configured; `MODULATE_RETENTION_CONFIRMED` absent. Application adapter stays **not configured** pending retention/entitlement confirmation. Short diagnostic does not establish PII-redaction accuracy or retention |
 | FastSpring | Basic-auth read-only catalog GET: HTTP 200, response parsed. **Zero checkout/charge calls, no order** | API username/password configured. Existing `FASTSPRING_STOREFRONT` has unsupported test-popup format and was preserved. Confirm `FASTSPRING_CHECKOUT_PATH` (`store/web-checkout` etc.), `FASTSPRING_PRODUCT_PATH` for our USD 1 theme, `FASTSPRING_SANDBOX_CONFIRMED`; webhook secret missing. Actual sandbox checkout/order/webhook not verified |
 
+The successful diagnostic's Inworld selection can be supplied to one local process without writing any credential file:
+
+```bash
+INWORLD_MODEL_ID=inworld-tts-2 INWORLD_VOICE_ID=Aanya node --env-file=../one-world-every-age/.env scripts/dev.mjs
+```
+
+This resolves the missing model/voice settings for that process only. It does not enable k-ID mapping or confirm Modulate retention, so it cannot bypass the remaining application-authorization blockers.
+
 `BEACON_COMPANION_ORIGIN` is configured; `BEACON_EXTENSION_ORIGINS` is missing. All existing `@beacon/*`, BEACON names, IDs and provider settings are preserved. New variable **names**, never values, are in `.env.example`. Malformed/missing provider configuration fails closed without blocking startup.
 
 Only rerun the diagnostic intentionally; it makes one synthetic TTS/redaction request when configured:
@@ -154,3 +162,5 @@ Final validation (2026-10-21, Node 22.20.0):
 - One final fetch after validation: team main still `17d69b8f361fafad9d307258ce39110067c85ee3`; fork main still `97675eceedd2c3f722751fd5e81fb5f34106055a`. No newer team snapshot required another merge.
 
 Remaining manual/live checks: actual toolbar/activeTab and local host-grant interaction; full genuine k-ID claim exchange/product mapping; protected application Gemini/voice; real adult capture/playback/retention/redaction-quality checks; genuine jurisdiction difference (the labelled consent transition is tested); eligible sandbox checkout/order completion and signed webhooks; W14 verified parent, approval, policy/monthly ledger and saved-method contracts; real Safari/Android devices. These are not claimed as passed.
+
+Final extension review corrected Vite’s discarded script-completion value: the popup now reads a bounded result from Chrome’s isolated content world, clears stale handoff controls and checks that the tab URL is unchanged. The built-artifact browser regression verifies this result channel; the actual positive toolbar grant remains manual.
