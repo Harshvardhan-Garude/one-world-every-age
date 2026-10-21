@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const forbidden = ['correctChoiceId', 'requiredReasonId', 'requiredActionId', 'baselineRubric', 'GEMINI_API_KEY', 'KID_API_KEY', 'INWORLD_API_KEY', 'MODULATE_API_KEY', 'apps/api/src'];
+const forbidden = ['correctChoiceId', 'requiredReasonId', 'requiredActionId', 'baselineRubric', 'GEMINI_API_KEY', 'KID_API_KEY', 'INWORLD_API_KEY', 'MODULATE_API_KEY', 'KID_WEBHOOK_SECRET', 'FASTSPRING_API_USERNAME', 'FASTSPRING_API_PASSWORD', 'FASTSPRING_WEBHOOK_SECRET', 'apps/api/src'];
 let checked = 0;
 async function inspect(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {

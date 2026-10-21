@@ -11,11 +11,11 @@ if (origin.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(origin.h
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 const manifest = {
-  manifest_version: 3, name: 'Beacon · Foundation', version: '0.1.0',
+  manifest_version: 3, name: 'Ozone Layer · Foundation', version: '0.1.0',
   description: 'Local demo and manual page-access shell. Automatic detection and voice are not implemented.',
   permissions: ['activeTab', 'scripting', 'storage'],
   optional_host_permissions: ['http://*/*', 'https://*/*'],
-  action: { default_popup: 'popup.html', default_title: 'Open Beacon foundation' },
+  action: { default_popup: 'popup.html', default_title: 'Open Ozone Layer foundation' },
   background: { service_worker: 'worker.js', type: 'module' },
   content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'" },
 };
@@ -35,6 +35,6 @@ for (const entry of ['popup', 'worker', 'content']) {
   if (watch) watchers.push(result);
 }
 if (watch) {
-  console.log('Watching Beacon extension; load apps/extension/dist and reload it after changes.');
+  console.log('Watching Ozone Layer extension; load apps/extension/dist and reload it after changes.');
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await Promise.all(watchers.map(w => w.close())); process.exit(0); });
 }

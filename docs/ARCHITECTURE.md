@@ -1,10 +1,12 @@
 # Architecture and integration handoffs
 
-Status: W00/W01 implements the workspace and baseline contracts described in [the foundation runbook](FOUNDATION.md). Remaining APIs and product behavior below are future handoff targets based on functional specification v1.1 sections 6–8 and 12–14. The specification governs product behavior; [CONTRIBUTING.md](../CONTRIBUTING.md) governs contribution policy.
+Product: Ozone Layer (working title; internal identifiers keep the earlier "Beacon" name, see the README's Naming section). Based on functional specification v1.2, including parent-approved purchases (section 13.1).
+
+Status: W00/W01 (merged in PR #4) implements the workspace and baseline contracts described in [the foundation runbook](FOUNDATION.md). Remaining APIs and product behavior below are future handoff targets based on functional specification v1.2 sections 6–8 and 12–14, including 13.1. The specification governs product behavior; [CONTRIBUTING.md](../CONTRIBUTING.md) governs contribution policy.
 
 ## Proposed workspace
 
-The W00/W01 branch uses the specification's TypeScript monorepo default. The prior untracked Next.js starter was preserved outside the checkout. See the runbook for implemented paths, scripts and limits.
+W00/W01 (merged in PR #4) uses the specification's TypeScript monorepo default. The prior untracked Next.js starter was preserved outside the checkout. See the runbook for implemented paths, scripts and limits.
 
 ```text
 apps/
@@ -39,6 +41,8 @@ W01 owns schema changes with review from the consuming role. The following is an
 | Challenge/attempt | Stable `credit_key`, challenge/version, category, server rubric, confirmed choice, reveal state, idempotency key; correctness is server-derived |
 | Voice turn | Owned assessment/session reference, turn ID, context version, stage, cancellation/deadline state; raw media/transcripts are transient |
 | Structured error | Stable application code, readable message, retryability and request ID; no raw provider payloads or secrets |
+| Purchase policy | Owning adult admin, child session reference, rule (`off`, `approve_each`, `monthly_limit`), monthly limit in minor units and currency, what happens over the limit (`ask_parent` or `deny`), notify-after-purchase flag, version |
+| Purchase request | Server-generated ID (also sent to k-ID as its request ID), child session, item from our own catalog, server-priced amount and currency, state (`requested`, `awaiting_parent`, `approved`, `denied`, `expired`, `charging`, `charged`, `charge_failed`, `blocked_by_policy`), k-ID `expiresAt`, FastSpring references; no card data |
 
 Use the capability names and five decision states from spec section 6. All applicable decisions must authorize an operation; unknown/pending/expired/denied values fail closed for that operation. A backend guard must run even if UI controls are hidden. k-ID permission keys and provider APIs must be mapped from the configured documentation; internal examples are not assumed vendor contracts.
 
@@ -69,6 +73,11 @@ These logical routes come from spec section 14. They are application routes to i
 | `POST /api/voice/turns`, `POST /api/voice/turns/:turnId/cancel` | W08 | Bounded recording, ownership, redaction-first sequencing, stage checks and cancellation |
 | `GET /api/challenges`, `POST /api/challenges/:id/attempts`, `GET /api/progress` | W09 | Public challenge payload without answer rubric, server grading and transactional unique awards |
 | `DELETE /api/user-data` | W10 | Owned-data deletion, cancellation and local-state cleanup coordination |
+| `GET /api/purchase-policy`, `PUT /api/purchase-policy` | W14 | Adult admin only; changes apply to new requests and are rechecked right before any charge |
+| `POST /api/payment-method/checkout` | W14 | Adult admin only; starts a FastSpring hosted checkout to save a card. Returns a checkout reference, never card data |
+| `POST /api/purchases`, `GET /api/purchases`, `GET /api/purchases/:id` | W14 | Child requests an item from our catalog; the price comes from the server catalog, never the client |
+| `POST /api/webhooks/kid` | W14 | Verifies k-ID's signature; handles `Transaction.PurchaseApprovalResult`; ignores repeats by request ID |
+| `POST /api/webhooks/fastspring` | W14 | Verifies FastSpring's signature; handles order and charge results; ignores repeats by event ID |
 
 ## Provider and voice boundary
 
@@ -82,8 +91,21 @@ Keep one active turn per session. Default limits from the spec: 15 seconds/2 MiB
 
 Mock adapters implement the same contracts with explicit provenance and deterministic outcomes. They must never authorize production calls. For live adapters, record SDK/API version, documented permission mapping, supported formats, retention configuration, test date/mode, sanitized result and unresolved issues. Documentation review alone is not verification.
 
+## Purchase boundary (W14)
+
+Flow: the child's request reaches our backend → the backend applies the parent's policy → when approval is needed it calls k-ID `POST /transaction/request-purchase` → k-ID emails the parent, who answers in Family Connect → k-ID calls `POST /api/webhooks/kid` with `approved`, `denied` or `expired` (24-hour expiry) → on approval, or when under the monthly limit, the backend charges the parent's saved method through FastSpring → FastSpring calls `POST /api/webhooks/fastspring` with the result → when notify-after-purchase is on, the backend reports the purchase to k-ID with `POST /transaction/push`.
+
+1. Card entry happens only in FastSpring's hosted checkout. Our code never receives, stores or logs card numbers.
+2. k-ID never processes or blocks payments; our backend enforces every decision. Denied, expired, disabled or unanswered requests never charge.
+3. Prices come from our server catalog. Only Ozone Layer's own catalog is purchasable; we never charge for other companies' products.
+4. Webhook checks use the raw request body, before JSON parsing, with a constant-time comparison. k-ID: lowercase hex HMAC-SHA256 of the timestamp header followed by the body, in `X-Signature-Hmac-Sha256` with `X-Signature-Timestamp`. FastSpring: base64 HMAC-SHA256 of the body in `X-FS-Signature`. Both can deliver the same event more than once, so handlers ignore repeats.
+5. Recheck the policy, the monthly total and the request state right before charging, inside one transaction, so a repeated webhook or a race can't charge twice.
+6. FastSpring runs in test mode only. Two behaviors are unconfirmed (spec 13.1): charging a varying amount to a saved method, and saving a card without a purchase. Until confirmed, the charge step may use FastSpring's documented simulated charge, labeled as simulated.
+
+Provider secrets (`KID_API_KEY`, `KID_WEBHOOK_SECRET`, `FASTSPRING_API_USERNAME`, `FASTSPRING_API_PASSWORD`, `FASTSPRING_WEBHOOK_SECRET`) stay server-side and never appear in browser bundles.
+
 ## Handoff rules
 
-The backend role owns sessions, capabilities and persistence; the experience role owns extension and companion UI; the AI/voice role owns provider reasoning/audio adapters. Shared-schema changes require review from the consumer. Each PR includes the task ID, contract impact, fixture, reproduction steps, tests actually run, provider mode and remaining blockers.
+The backend role (Harsh) owns sessions, capabilities, purchase policy, webhooks and persistence; the experience role (Joseph) owns extension and companion UI, including the parent and purchase screens; the AI/voice role (Angela with Joseph) owns provider reasoning/audio adapters. Shared-schema changes require review from the consumer. Each PR includes the task ID, contract impact, fixture, reproduction steps, tests actually run, provider mode and remaining blockers.
 
 Integrate against one agreed P01/P16 fixture pair before expanding the catalog. Use deterministic implementations at a documented boundary while waiting on another task, and preserve honest mode labels. A blocked live adapter does not block independent local detection, accessible UI, curated learning, or negative-case tests.
