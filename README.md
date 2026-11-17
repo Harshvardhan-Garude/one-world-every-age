@@ -24,3 +24,16 @@ Open [the companion](http://127.0.0.1:5173) and choose a fictional scenario. The
 To try the Chrome extension, run `npm run build`, then load `apps/extension/dist` as an unpacked extension. The [runbook](https://github.com/Harshvardhan-Garude/one-world-every-age/blob/feat/ozone-demo/docs/DEMO.md#build-and-load-the-extension) lists the supported fixture pages and Chrome permissions.
 
 To run the automated tests on the demo branch, use `npm test`.
+
+## Windows verification
+
+With Node 22.20.0 and npm 10.9.3, dependency installation, typecheck, all builds,
+browser-bundle inspection, and the Chromium/unpacked-extension smoke test passed.
+The unit test run passed 107 of 109 tests; two SQLite tests failed during cleanup
+because Windows still held their database files open. Close the stores before
+removing those temporary files to make the test suite portable.
+
+The optional private k-ID SDK archive is absent from a fresh clone. npm may warn
+about that archive while the offline install still succeeds. Live voice, browser
+claim redemption, parent-approved payments, and Chrome's actual toolbar/host
+permission grants remain separate from the automated fixture checks.
