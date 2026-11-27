@@ -2,6 +2,8 @@
 
 OzoneLayer is a hackathon prototype that teaches people how to respond to suspicious online messages. A Chrome extension and web companion show fictional scenarios for different ages. A child gets a deceptive offer in a game, and an older adult gets a suspicious toll notice. Each lesson explains the warning signs and gives the user a next step.
 
+The prototype combines a React companion, a Chrome extension, and a TypeScript backend. Gemini generates structured coaching linked to the current scenario’s evidence, and the backend validates the response before showing it. The speech prototype connects Modulate audio redaction, Gemini coaching, and Inworld text-to-speech. A real Gemini text-coaching turn and separate speech-provider diagnostics are recorded in the runbook. Full application voice still requires additional media permissions and configuration.
+
 Built by Joseph Bisaccia, Harshvardhan Garude, and Angela Liu at the Google and k-ID Build for Everyone Hackathon in San Francisco in October 2026. OzoneLayer was a finalist in the Games track.
 
 - [Official recording](https://k-id.com/events/build-for-everyone-san-francisco-2026) (OzoneLayer starts at 43:46)
